@@ -1,2 +1,2 @@
-# ChiRho_MSSQL
-A performance tool for SQL Server
+# ChiRho
+A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances

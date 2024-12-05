@@ -1,0 +1,1 @@
+Because functions suck for scalability! Well, except inline TVFs.
