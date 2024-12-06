@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [CoreXR].[UpdateDBMapping] 
+CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_UpdateDBMapping
 /*   
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ CREATE PROCEDURE [CoreXR].[UpdateDBMapping]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.UpdateDBMapping.StoredProcedure.sql
+	FILE NAME: CoreXR_UpdateDBMapping.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.UpdateDBMapping
+	PROCEDURE NAME: CoreXR_UpdateDBMapping
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -41,7 +41,7 @@ CREATE PROCEDURE [CoreXR].[UpdateDBMapping]
 
 To Execute
 ------------------------
-EXEC CoreXR.UpdateDBMapping
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_UpdateDBMapping
 */
 AS
 BEGIN
@@ -63,7 +63,7 @@ BEGIN
 		d.name
 	FROM sys.databases d;
 
-	/* The CoreXR.DBIDNameMapping table tracks time ranges for mappings, and there is (of course) also
+	/* The CoreXR_DBIDNameMapping table tracks time ranges for mappings, and there is (of course) also
 		the concept of a "current set", i.e. every row where EffectiveEndTimeUTC IS NULL.
 
 		First, we close out every row where we have a DBName present in both the current set and in our SQL catalog,
@@ -73,7 +73,7 @@ BEGIN
 	UPDATE targ 
 	SET EffectiveEndTimeUTC = @EffectiveTimeUTC,
 		EffectiveEndTime = @EffectiveTime
-	FROM CoreXR.DBIDNameMapping targ 
+	FROM @@CHIRHO_SCHEMA@@.CoreXR_DBIDNameMapping targ 
 		INNER JOIN #CurrentDBIDNameMapping t
 			ON t.DBName = targ.DBName
 			AND t.DBID <> targ.DBID
@@ -82,10 +82,10 @@ BEGIN
 	/*
 		Next, we insert any DBNames where the name is in the catalog but not present at all in our current set. 
 		(It could be present in an older, already-closed-out row).
-		It could be a new DB, or it could have been detached for a while, its row in CoreXR.DBIDNameMapping closed out,
+		It could be a new DB, or it could have been detached for a while, its row in CoreXR_DBIDNameMapping closed out,
 		and then re-attached.
 	*/
-	INSERT INTO CoreXR.DBIDNameMapping (
+	INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_DBIDNameMapping (
 		DBID, 
 		DBName, 
 		EffectiveStartTimeUTC, 
@@ -103,7 +103,7 @@ BEGIN
 	FROM #CurrentDBIDNameMapping t
 	WHERE NOT EXISTS (
 		SELECT * 
-		FROM CoreXR.DBIDNameMapping m
+		FROM @@CHIRHO_SCHEMA@@.CoreXR_DBIDNameMapping m
 		WHERE m.DBName = t.DBName
 		AND m.EffectiveEndTimeUTC IS NULL 
 	);
@@ -114,7 +114,7 @@ BEGIN
 	UPDATE targ 
 	SET EffectiveEndTimeUTC = @EffectiveTimeUTC,
 		EffectiveEndTime = @EffectiveTime
-	FROM CoreXR.DBIDNameMapping targ 
+	FROM @@CHIRHO_SCHEMA@@.CoreXR_DBIDNameMapping targ 
 	WHERE targ.EffectiveEndTimeUTC IS NULL
 	AND NOT EXISTS (
 		SELECT * FROM #CurrentDBIDNameMapping t

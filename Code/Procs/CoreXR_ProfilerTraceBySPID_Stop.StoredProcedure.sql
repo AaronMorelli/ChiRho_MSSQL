@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [CoreXR].[ProfilerTraceBySPID_Stop]
+CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceBySPID_Stop
 /*   
-	Copyright 2016 Aaron Morelli
+	Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ CREATE PROCEDURE [CoreXR].[ProfilerTraceBySPID_Stop]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.ProfilerTraceBySPID_Stop.StoredProcedure.sql
+	FILE NAME: CoreXR_ProfilerTraceBySPID_Stop.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.ProfilerTraceBySPID_Stop
+	PROCEDURE NAME: CoreXR_ProfilerTraceBySPID_Stop
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -34,7 +34,7 @@ CREATE PROCEDURE [CoreXR].[ProfilerTraceBySPID_Stop]
 					sqlcrossjoin.wordpress.com
 
 	PURPOSE: Called ad-hoc by users when wanting to stop a trace started
-		by [CoreXR].[ProfilerTraceBySPID_Start]
+		by CoreXR_ProfilerTraceBySPID_Start
 
 		Note that error handling for this proc is carefully constructed not to raise any
 		exceptions, and no transaction management is undertaken. This is to avoid any
@@ -48,18 +48,18 @@ To Execute
 ------------------------
 minimal param usage:
 DECLARE @lmsg NVARCHAR(MAX);
-EXEC [CoreXR].[ProfilerTraceBySPID_Start] @TraceCategories=N'Performance,Stored Procedures', 
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceBySPID_Start @TraceCategories=N'Performance,Stored Procedures', 
 												@IncludePerfWarnings=N'Y',
 												@SPID=NULL,			--defaults to current SPID
 												@Duration=250000,	--250 ms will ignore lots of unimportant statements
 												@ReturnMessage=@lmsg OUTPUT
 												;
 PRINT ISNULL(@lmsg, N'<null>');
-	--get more categories from SELECT DISTINCT category_name FROM CoreXR.ProfilerTraceEvents
+	--get more categories from SELECT DISTINCT category_name FROM CoreXR_ProfilerTraceEvents
 
 Then to stop the trace, call:
 DECLARE @lmsg NVARCHAR(MAX);
-EXEC [XR].[ProfilerTraceBySPID_Stop] @SPID=NULL,		--will use the current to find the sys.traces ID via a CoreXR mapping table
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceBySPID_Stop @SPID=NULL,		--will use the current to find the sys.traces ID via a CoreXR mapping table
 												@ReturnMessage=@lmsg OUTPUT
 												;
 PRINT ISNULL(@lmsg, N'<null>');
@@ -70,7 +70,7 @@ PRINT ISNULL(@lmsg, N'<null>');
 	@SearchByBoth		NCHAR(1)		= N'N',		-- If both are specified, user must tell us that we can use either to find the trace
 													-- We default this to "N" because of the possibility of accidentally stopping the
 													-- wrong trace. For example, if the trace handle isn't found, but a trace *is*
-													-- found indirectly (via CoreXR.Traces & a SPID #), how do we know the sys.traces
+													-- found indirectly (via CoreXR_Traces & a SPID #), how do we know the sys.traces
 													-- trace is the one we really are to stop? So there is an element of uncertainty
 													-- here that we need to user to agree upon.
 	@ReturnMessage 		NVARCHAR(MAX)	= NULL OUTPUT
@@ -108,7 +108,7 @@ BEGIN
 	BEGIN
 		IF @SearchByBoth = N'N'
 		BEGIN
-			--B/c user didn't "authorize" searching by both, we disable @SPID searching and rely
+			--B/c user did not "authorize" searching by both, we disable @SPID searching and rely
 			-- completely on the trace handle searching.
 			SET @SPID = NULL;
 		END
@@ -130,7 +130,7 @@ BEGIN
 			--We already failed at searching by @TID, so give up.
 			SET @ReturnMessage = N'Error: SQLTrace with Trace handle of ' + CONVERT(NVARCHAR(20), @TID) + ' not found. Exiting...';
 			SET @ErrorCode = -4;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -144,7 +144,7 @@ BEGIN
 			SELECT 
 				 @TID = t.Payload_bigint,
 				 @TraceCreateTime = t.Payload_datetime
-			FROM CoreXR.Traces t
+			FROM @@CHIRHO_SCHEMA@@.CoreXR_Traces t
 			WHERE t.Payload_int = @SPID;
 
 			IF @TID IS NULL
@@ -152,7 +152,7 @@ BEGIN
 				SET @ReturnMessage = N'Unable to find ChiRho profiler trace registration by SPID (' + 
 						ISNULL(CONVERT(NVARCHAR(20),@SPID),N'<null>') + '). Exiting...';
 				SET @ErrorCode = -5;
-				INSERT INTO CoreXR.[Log]
+				INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 					(LogDT, ErrorCode, LocationTag, LogMessage)
 				SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 				RETURN @ErrorCode;
@@ -176,7 +176,7 @@ BEGIN
 						ISNULL(CONVERT(NVARCHAR(20),@TID),N'<null>') + ') and start time (' + 
 						ISNULL(CONVERT(NVARCHAR(20),@TraceCreateTime),N'<null>') + '). Exiting...';
 					SET @ErrorCode = -6;
-					INSERT INTO CoreXR.[Log]
+					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 						(LogDT, ErrorCode, LocationTag, LogMessage)
 					SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 					RETURN @ErrorCode;
@@ -198,7 +198,7 @@ BEGIN
 			BEGIN
 				SET @ReturnMessage = N'sp_trace_setstatus (when stopping a running trace) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 				SET @ErrorCode = -7;
-				INSERT INTO CoreXR.[Log]
+				INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 					(LogDT, ErrorCode, LocationTag, LogMessage)
 				SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 				RETURN @ErrorCode;
@@ -212,7 +212,7 @@ BEGIN
 				CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 				ERROR_MESSAGE();
 			SET @ErrorCode = -8;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -227,7 +227,7 @@ BEGIN
 		BEGIN
 			SET @ReturnMessage = N'sp_trace_setstatus (when removing a stopped trace) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 			SET @ErrorCode = -9;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -241,7 +241,7 @@ BEGIN
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -10;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;

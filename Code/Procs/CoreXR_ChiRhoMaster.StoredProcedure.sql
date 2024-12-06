@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE   [CoreXR].[ChiRhoMaster]
+CREATE PROCEDURE   @@CHIRHO_SCHEMA@@.CoreXR_ChiRhoMaster
 /*   
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ CREATE PROCEDURE   [CoreXR].[ChiRhoMaster]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.ChiRhoMaster.StoredProcedure.sql
+	FILE NAME: CoreXR_ChiRhoMaster.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.ChiRhoMaster
+	PROCEDURE NAME: CoreXR_ChiRhoMaster
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -34,7 +34,7 @@ CREATE PROCEDURE   [CoreXR].[ChiRhoMaster]
 					sqlcrossjoin.wordpress.com
 
 	PURPOSE: Runs regularly throughout the day (by default, every 15 minutes), and checks whether the various
-		traces (that drive data collection) should be running, and if they should but aren't, starts them.
+		traces (that drive data collection) should be running, and if they should but are not, starts them.
 		Also runs the purge/retention procedures for AutoWho & ServerEye (and in the future, other components of
 		the ChiRho suite) to keep data volumes manageable.
 
@@ -43,7 +43,7 @@ CREATE PROCEDURE   [CoreXR].[ChiRhoMaster]
 To Execute
 ------------------------
 DECLARE @lmsg VARCHAR(MAX)
-EXEC CoreXR.ChiRhoMaster @ErrorMessage=@lmsg OUTPUT 
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_ChiRhoMaster @ErrorMessage=@lmsg OUTPUT 
 PRINT ISNULL(@lmsg, '<null>')
 */
 (
@@ -142,7 +142,7 @@ BEGIN
 		SET @lv__ThisHourInUTC = DATEPART(HOUR, GETUTCDATE());
 
 		--Update our DBID mapping table
-		EXEC [CoreXR].[UpdateDBMapping];
+		EXEC @@CHIRHO_SCHEMA@@.CoreXR_UpdateDBMapping;
 
 		IF OBJECT_ID('tempdb..#CurrentlyRunningJobs1') IS NOT NULL
 			BEGIN
@@ -166,7 +166,7 @@ BEGIN
 
 		INSERT INTO #CurrentlyRunningJobs1 
 			EXECUTE master.dbo.xp_sqlagent_enum_jobs 1, 'hullabaloo'; --undocumented
-			--can't use this because we can't nest an INSERT EXEC: exec msdb.dbo.sp_help_job @execution_status=1
+			--cannot use this because we cannot nest an INSERT EXEC: exec msdb.dbo.sp_help_job @execution_status=1
 
 		SET @lv__CurTimeUTC = GETUTCDATE();
 
@@ -188,9 +188,10 @@ BEGIN
 
 		/*************************************** AutoWho Job stuff ***************************/
 		--This proc gives us the next time range when the AutoWho trace should be running. If @lv__CurTimeUTC is within a time range when AutoWho
-		--should be running, we'll get the start/end of the time range that AutoWho should be running for right now.
-		EXEC @lv__ProcRC = CoreXR.TraceTimeInfo @Utility=N'AutoWho', @PointInTimeUTC = @lv__CurTimeUTC, @UtilityIsEnabled = @AutoWho__IsEnabled OUTPUT,
-				@UtilityStartTimeUTC = @AutoWho__StartTimeUTC OUTPUT, @UtilityEndTimeUTC = @AutoWho__EndTimeUTC OUTPUT;
+		--should be running, we will get the start/end of the time range that AutoWho should be running for right now.
+		EXEC @lv__ProcRC = @@CHIRHO_SCHEMA@@.CoreXR_TraceTimeInfo @Utility=N'AutoWho', 
+			@PointInTimeUTC = @lv__CurTimeUTC, @UtilityIsEnabled = @AutoWho__IsEnabled OUTPUT,
+			@UtilityStartTimeUTC = @AutoWho__StartTimeUTC OUTPUT, @UtilityEndTimeUTC = @AutoWho__EndTimeUTC OUTPUT;
 
 		IF @lv__CurTimeUTC BETWEEN @AutoWho__StartTimeUTC AND @AutoWho__EndTimeUTC 
 			AND @AutoWho__IsEnabled = N'Y'
@@ -205,19 +206,19 @@ BEGIN
 				WHERE j.name = @AutoWhoJobName
 				AND t.Running = 1)
 			BEGIN
-				IF NOT EXISTS (SELECT * FROM AutoWho.SignalTable t WITH (NOLOCK) 
+				IF NOT EXISTS (SELECT * FROM @@CHIRHO_SCHEMA@@.AutoWho_SignalTable t WITH (NOLOCK) 
 								WHERE LOWER(SignalName) = N'aborttrace' 
 								AND LOWER(t.SignalValue) = N'allday'
-								AND DATEDIFF(DAY, InsertTime, GETDATE()) = 0)	--we use local instead of UTC because the DST 1am-2am issue doesn't affect this logic 
-																				--and everything thinks in local time anyway (so there's no value in aborting for the full UTC day)
+								AND DATEDIFF(DAY, InsertTime, GETDATE()) = 0)	--we use local instead of UTC because the DST 1am-2am issue does not affect this logic 
+																				--and everything thinks in local time anyway (so there is no value in aborting for the full UTC day)
 				--any abort requests will, by default, continue their effect the rest of the day.
 				BEGIN
 					EXEC msdb.dbo.sp_start_job @job_name = @AutoWhoJobName;
-					EXEC AutoWho.LogEvent @ProcID=@@PROCID, @EventCode = 0, @TraceID = NULL, @Location = N'XRMaster AutoWho Job Start', @Message = N'AutoWho Trace job started.';
+					EXEC @@CHIRHO_SCHEMA@@.AutoWho_LogEvent @ProcID=@@PROCID, @EventCode = 0, @TraceID = NULL, @Location = N'XRMaster AutoWho Job Start', @Message = N'AutoWho Trace job started.';
 				END
 				ELSE
 				BEGIN
-					EXEC AutoWho.LogEvent @ProcID=@@PROCID, @EventCode = -1, @TraceID = NULL, @Location = N'XRMaster AutoWho Signal', @Message = N'An AbortTrace signal exists for today. This procedure has been told not to run the rest of the day.';
+					EXEC @@CHIRHO_SCHEMA@@.AutoWho_LogEvent @ProcID=@@PROCID, @EventCode = -1, @TraceID = NULL, @Location = N'XRMaster AutoWho Signal', @Message = N'An AbortTrace signal exists for today. This procedure has been told not to run the rest of the day.';
 				END
 			END	 
 		END		--IF @lv__CurTimeUTC BETWEEN @AutoWho__StartTimeUTC AND @AutoWho__EndTimeUTC 
@@ -227,9 +228,10 @@ BEGIN
 
 		/*************************************** ServerEye Job stuff ***************************/
 		--This proc gives us the next time range when the ServerEye trace should be running. If @lv__CurTimeUTC is within a time range when ServerEye
-		--should be running, we'll get the start/end of the time range that ServerEye should be running for right now.
-		EXEC @lv__ProcRC = CoreXR.TraceTimeInfo @Utility=N'ServerEye', @PointInTimeUTC = @lv__CurTimeUTC, @UtilityIsEnabled = @ServerEye__IsEnabled OUTPUT,
-				@UtilityStartTimeUTC = @ServerEye__StartTimeUTC OUTPUT, @UtilityEndTimeUTC = @ServerEye__EndTimeUTC OUTPUT;
+		--should be running, we will get the start/end of the time range that ServerEye should be running for right now.
+		EXEC @lv__ProcRC = @@CHIRHO_SCHEMA@@.CoreXR_TraceTimeInfo @Utility=N'ServerEye', 
+			@PointInTimeUTC = @lv__CurTimeUTC, @UtilityIsEnabled = @ServerEye__IsEnabled OUTPUT,
+			@UtilityStartTimeUTC = @ServerEye__StartTimeUTC OUTPUT, @UtilityEndTimeUTC = @ServerEye__EndTimeUTC OUTPUT;
 
 		IF @lv__CurTimeUTC BETWEEN @ServerEye__StartTimeUTC AND @ServerEye__EndTimeUTC 
 			AND @ServerEye__IsEnabled = N'Y'
@@ -244,19 +246,19 @@ BEGIN
 				WHERE j.name = @ServerEyeJobName
 				AND t.Running = 1)
 			BEGIN
-				IF NOT EXISTS (SELECT * FROM ServerEye.SignalTable t WITH (NOLOCK) 
+				IF NOT EXISTS (SELECT * FROM @@CHIRHO_SCHEMA@@.ServerEye_SignalTable t WITH (NOLOCK) 
 								WHERE LOWER(SignalName) = N'aborttrace' 
 								AND LOWER(t.SignalValue) = N'allday'
-								AND DATEDIFF(DAY, InsertTime, GETDATE()) = 0)	--we use local instead of UTC because the DST 1am-2am issue doesn't affect this logic 
-																				--and everything thinks in local time anyway (so there's no value in aborting for the full UTC day)
+								AND DATEDIFF(DAY, InsertTime, GETDATE()) = 0)	--we use local instead of UTC because the DST 1am-2am issue does not affect this logic 
+																				--and everything thinks in local time anyway (so there is no value in aborting for the full UTC day)
 				--any abort requests will, by default, continue their effect the rest of the day.
 				BEGIN
 					EXEC msdb.dbo.sp_start_job @job_name = @ServerEyeJobName;
-					EXEC ServerEye.LogEvent @ProcID=@@PROCID, @EventCode = 0, @TraceID = NULL, @Location = N'XRMaster ServerEye Job Start', @Message = N'ServerEye Trace job started.';
+					EXEC @@CHIRHO_SCHEMA@@.ServerEye_LogEvent @ProcID=@@PROCID, @EventCode = 0, @TraceID = NULL, @Location = N'XRMaster ServerEye Job Start', @Message = N'ServerEye Trace job started.';
 				END
 				ELSE
 				BEGIN
-					EXEC ServerEye.LogEvent @ProcID=@@PROCID, @EventCode = -1, @TraceID = NULL, @Location = N'XRMaster ServerEye Signal', @Message = N'An AbortTrace signal exists for today. This procedure has been told not to run the rest of the day.';
+					EXEC @@CHIRHO_SCHEMA@@.ServerEye_LogEvent @ProcID=@@PROCID, @EventCode = -1, @TraceID = NULL, @Location = N'XRMaster ServerEye Signal', @Message = N'An AbortTrace signal exists for today. This procedure has been told not to run the rest of the day.';
 				END
 			END	 
 		END		--IF @lv__CurTimeUTC BETWEEN @ServerEye__StartTimeUTC AND @ServerEye__EndTimeUTC 
@@ -266,12 +268,12 @@ BEGIN
 
 		BEGIN TRY
 			SET @lv__ProcRC = 0;
-			EXEC @lv__ProcRC = AutoWho.UpdateStoreLastTouched;
+			EXEC @lv__ProcRC = @@CHIRHO_SCHEMA@@.AutoWho_UpdateStoreLastTouched;
 		END TRY
 		BEGIN CATCH
 			--inside the loop, we swallow the error and just log it
 			SET @ErrorMessage = N'Exception occurred when updating the store LastTouched values: ' + ERROR_MESSAGE();
-			EXEC AutoWho.LogEvent @ProcID=@@PROCID, @EventCode = -999, @TraceID = NULL, @Location = N'ErrorLastTouch', @Message = @ErrorMessage;
+			EXEC @@CHIRHO_SCHEMA@@.AutoWho_LogEvent @ProcID=@@PROCID, @EventCode = -999, @TraceID = NULL, @Location = N'ErrorLastTouch', @Message = @ErrorMessage;
 		END CATCH
 
 		BEGIN TRY
@@ -285,7 +287,7 @@ BEGIN
 			SELECT 
 				@lv__PostProcStartUTC = MIN(ct.UTCCaptureTime),
 				@lv__PostProcEndUTC = MAX(ct.UTCCaptureTime)
-			FROM AutoWho.CaptureTimes ct
+			FROM @@CHIRHO_SCHEMA@@.AutoWho_CaptureTimes ct
 			WHERE ct.CollectionInitiatorID = 255
 			AND ct.UTCCaptureTime >= @lv__PostProcRawStartUTC
 			AND ct.UTCCaptureTime <= @lv__PostProcRawEndUTC;
@@ -293,13 +295,13 @@ BEGIN
 			IF @lv__PostProcStartUTC IS NOT NULL	--Only post-process if we have background captures in the last 45 minutes
 			BEGIN
 				SET @lv__ProcRC = 0;
-				EXEC @lv__ProcRC = AutoWho.PostProcessor @optionset=N'BackgroundTrace', @init=255, @startUTC=@lv__PostProcStartUTC, @endUTC=@lv__PostProcEndUTC;
+				EXEC @lv__ProcRC = @@CHIRHO_SCHEMA@@.AutoWho_PostProcessor @optionset=N'BackgroundTrace', @init=255, @startUTC=@lv__PostProcStartUTC, @endUTC=@lv__PostProcEndUTC;
 			END
 		END TRY
 		BEGIN CATCH
 			--inside the loop, we swallow the error and just log it
 			SET @ErrorMessage = N'Exception occurred when post-processing AutoWho captures: ' + ERROR_MESSAGE();
-			EXEC AutoWho.LogEvent @ProcID=@@PROCID, @EventCode = -999, @TraceID = NULL, @Location = N'ErrorPostProcess', @Message = @ErrorMessage;
+			EXEC @@CHIRHO_SCHEMA@@.AutoWho_LogEvent @ProcID=@@PROCID, @EventCode = -999, @TraceID = NULL, @Location = N'ErrorPostProcess', @Message = @ErrorMessage;
 		END CATCH
 
 		/*************************************** AutoWho Purge ***************************/
@@ -313,7 +315,7 @@ BEGIN
 			--AND the log doesn't show any purge as having run in the last 75 minutes (use UTC time to avoid weirdness on DST-change days)
 			AND NOT EXISTS (
 				SELECT *
-				FROM AutoWho.[Log] l
+				FROM @@CHIRHO_SCHEMA@@.AutoWho_Log l
 				WHERE l.LocationTag = 'XRMaster AutoWho Purge'
 				AND l.LogMessage = 'Purge procedure completed'
 				AND l.LogDTUTC > DATEADD(MINUTE, -75, GETUTCDATE())
@@ -330,7 +332,7 @@ BEGIN
 			--AND the log doesn't show any purge as having run in the last 75 minutes (use UTC time to avoid weirdness on DST-change days)
 			AND NOT EXISTS (
 				SELECT *
-				FROM AutoWho.[Log] l
+				FROM @@CHIRHO_SCHEMA@@.AutoWho_Log l
 				WHERE l.LocationTag = 'XRMaster AutoWho Purge'
 				AND l.LogMessage = 'Purge procedure completed'
 				AND l.LogDTUTC > DATEADD(MINUTE, -75, GETUTCDATE())
@@ -341,12 +343,12 @@ BEGIN
 
 		IF @lv__ShouldRunPurge = N'Y'
 		BEGIN
-			EXEC AutoWho.ApplyRetentionPolicies;
+			EXEC @@CHIRHO_SCHEMA@@.AutoWho_ApplyRetentionPolicies;
 
-			EXEC AutoWho.LogEvent @ProcID=@@PROCID, @EventCode = 0, @TraceID = NULL, @Location = N'XRMaster AutoWho Purge', @Message = N'Purge procedure completed';
+			EXEC @@CHIRHO_SCHEMA@@.AutoWho_LogEvent @ProcID=@@PROCID, @EventCode = 0, @TraceID = NULL, @Location = N'XRMaster AutoWho Purge', @Message = N'Purge procedure completed';
 
 			--Now that we have (potentially) deleted a bunch of rows, do some index maint
-			EXEC AutoWho.MaintainIndexes;
+			EXEC @@CHIRHO_SCHEMA@@.AutoWho_MaintainIndexes;
 		END
 		/*************************************** AutoWho Purge ***************************/
 
@@ -364,7 +366,7 @@ BEGIN
 			--AND the log doesn't show any purge as having run in the last 75 minutes (use UTC time to avoid weirdness on DST-change days)
 			AND NOT EXISTS (
 				SELECT *
-				FROM ServerEye.[Log] l
+				FROM @@CHIRHO_SCHEMA@@.ServerEye_Log l
 				WHERE l.LocationTag = 'XRMaster ServerEye Purge'
 				AND l.LogMessage = 'Purge procedure completed'
 				AND l.LogDTUTC > DATEADD(MINUTE, -75, GETUTCDATE())
@@ -381,7 +383,7 @@ BEGIN
 			--AND the log doesn't show any purge as having run in the last 75 minutes (use UTC time to avoid weirdness on DST-change days)
 			AND NOT EXISTS (
 				SELECT *
-				FROM ServerEye.[Log] l
+				FROM @@CHIRHO_SCHEMA@@.ServerEye_Log l
 				WHERE l.LocationTag = 'XRMaster ServerEye Purge'
 				AND l.LogMessage = 'Purge procedure completed'
 				AND l.LogDTUTC > DATEADD(MINUTE, -75, GETUTCDATE())
@@ -392,12 +394,12 @@ BEGIN
 
 		IF @lv__ShouldRunPurge = N'Y'
 		BEGIN
-			EXEC ServerEye.ApplyRetentionPolicies;
+			EXEC @@CHIRHO_SCHEMA@@.ServerEye_ApplyRetentionPolicies;
 
-			EXEC ServerEye.LogEvent @ProcID=@@PROCID, @EventCode = 0, @TraceID = NULL, @Location = N'XRMaster ServerEye Purge', @Message = N'Purge procedure completed';
+			EXEC @@CHIRHO_SCHEMA@@.ServerEye_LogEvent @ProcID=@@PROCID, @EventCode = 0, @TraceID = NULL, @Location = N'XRMaster ServerEye Purge', @Message = N'Purge procedure completed';
 
 			--Now that we have (potentially) deleted a bunch of rows, do some index maint
-			EXEC ServerEye.MaintainIndexes;
+			EXEC @@CHIRHO_SCHEMA@@.ServerEye_MaintainIndexes;
 		END
 		/*************************************** ServerEye Purge ***************************/
 

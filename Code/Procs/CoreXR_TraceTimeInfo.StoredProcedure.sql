@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [CoreXR].[TraceTimeInfo] 
+CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_TraceTimeInfo
 /*   
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ CREATE PROCEDURE [CoreXR].[TraceTimeInfo]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.TraceTimeInfo.StoredProcedure.sql
+	FILE NAME: CoreXR_TraceTimeInfo.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.TraceTimeInfo
+	PROCEDURE NAME: CoreXR_TraceTimeInfo
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -49,7 +49,7 @@ DECLARE @rc INT,
 	@st DATETIME, 
 	@nd DATETIME
 
-EXEC @rc = CoreXR.TraceTimeInfo @Utility=N'AutoWho', @PointInTimeUTC = @pit, @UtilityIsEnabled = @en OUTPUT, 
+EXEC @rc = @@CHIRHO_SCHEMA@@.CoreXR_TraceTimeInfo @Utility=N'AutoWho', @PointInTimeUTC = @pit, @UtilityIsEnabled = @en OUTPUT, 
 		@UtilityStartTimeUTC = @st OUTPUT, @UtilityEndTimeUTC = @nd OUTPUT
 
 SELECT @rc as ProcRC, @en as Enabled, @st as StartTime, @nd as EndTime
@@ -102,7 +102,7 @@ BEGIN
 			@opt__BeginTime			 = [BeginTime],
 			@opt__EndTime			 = [EndTime],
 			@opt__BeginEndIsUTC		 = [BeginEndIsUTC]
-		FROM AutoWho.Options o;
+		FROM @@CHIRHO_SCHEMA@@.AutoWho_Options o;
 	END
 	ELSE IF @Utility = N'ServerEye'
 	BEGIN
@@ -111,7 +111,7 @@ BEGIN
 			@opt__BeginTime			 = [BeginTime],
 			@opt__EndTime			 = [EndTime],
 			@opt__BeginEndIsUTC		 = [BeginEndIsUTC]
-		FROM ServerEye.Options o;
+		FROM @@CHIRHO_SCHEMA@@.ServerEye_Options o;
 	END
 
 	--First, check to see if the begin/end options are UTC or local. If local, convert to UTC.

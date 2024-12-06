@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [CoreXR].[StopTrace]
+CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_StopTrace
 /*   
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,30 +20,30 @@ CREATE PROCEDURE [CoreXR].[StopTrace]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.StopTrace.StoredProcedure.sql
+	FILE NAME: CoreXR_StopTrace.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.StopTrace
+	PROCEDURE NAME: CoreXR_StopTrace
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: This is the "more graceful" way to stop a CoreXR trace (than CoreXR.AbortTrace). @AbortCode
+	PURPOSE: This is the "more graceful" way to stop a CoreXR trace (than CoreXR_AbortTrace). @AbortCode
 		can be used to show whether the trace was stopped with any sort of problem. 
 
 		@Utility is either "AutoWho" "ServerEye", or "Profiler" at this time. 
 
-		@TraceID cannot be NULL (unlike CoreXR.AbortTrace), since it is assumed that whatever started the trace
+		@TraceID cannot be NULL (unlike CoreXR_AbortTrace), since it is assumed that whatever started the trace
 		will keep the handle (ID) to that trace until ready to stop that trace.
 
 To Execute
 ------------------------
-EXEC CoreXR.StopTrace @Utility=N'AutoWho', @TraceID=5, @AbortCode=N'N'
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_StopTrace @Utility=N'AutoWho', @TraceID=5, @AbortCode=N'N'
 */
 (
 	@Utility		NVARCHAR(20),
@@ -69,7 +69,7 @@ BEGIN
 
 	SELECT @RowExists = t.TraceID,
 		@StopTime = t.StopTime
-	FROM CoreXR.[Traces] t
+	FROM @@CHIRHO_SCHEMA@@.CoreXR_Traces t
 	WHERE t.TraceID = @TraceID
 	AND t.Utility = @Utility;
 
@@ -86,7 +86,7 @@ BEGIN
 	END
 	
 	--If we get this far, there is a not-stopped trace.
-	UPDATE CoreXR.[Traces]
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_Traces
 	SET StopTime = GETDATE(),
 		StopTimeUTC = GETUTCDATE(),
 		AbortCode = ISNULL(@AbortCode,N'N')
@@ -94,5 +94,4 @@ BEGIN
 
 	RETURN 0;
 END
-
 GO

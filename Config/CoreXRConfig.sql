@@ -1,5 +1,5 @@
 /*
-   Copyright 2024 Aaron Morelli
+   Copyright 2016 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,15 +15,10 @@
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
+	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILENAME: CreateSchemas.sql
+	FILENAME: CoreXRConfig.sql
 */
-CREATE SCHEMA @@CHIRHO_SCHEMA@@;
-GO
-CREATE SCHEMA [AutoWho]
-GO
-CREATE SCHEMA [ServerEye]
-GO
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_InsertConfigData

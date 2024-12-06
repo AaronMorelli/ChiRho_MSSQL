@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [CoreXR].[InsertConfigData] 
+CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_InsertConfigData
 /*   
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ CREATE PROCEDURE [CoreXR].[InsertConfigData]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.InsertConfigData.StoredProcedure.sql
+	FILE NAME: CoreXR_InsertConfigData.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.InsertConfigData
+	PROCEDURE NAME: CoreXR_InsertConfigData
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -39,27 +39,27 @@ CREATE PROCEDURE [CoreXR].[InsertConfigData]
 
 To Execute
 ------------------------
-EXEC CoreXR.InsertConfigData
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_InsertConfigData
 
 --use to reset the data:
-truncate table CoreXR.ProfilerTraceEvents
-truncate table CoreXR.Version
-truncate table CoreXR.CollectionInitiators
+truncate table @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents;
+truncate table @@CHIRHO_SCHEMA@@.CoreXR_Version;
+truncate table @@CHIRHO_SCHEMA@@.CoreXR_CollectionInitiators;
 */
 AS
 BEGIN
 	SET NOCOUNT ON;
 
 	--To prevent this proc from damaging the installation after it has already been run, check for existing data.
-	IF EXISTS (SELECT * FROM CoreXR.ProfilerTraceEvents)
-		OR EXISTS (SELECT * FROM CoreXR.Version)
-		OR EXISTS (SELECT * FROM CoreXR.CollectionInitiators)
+	IF EXISTS (SELECT * FROM @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents)
+		OR EXISTS (SELECT * FROM @@CHIRHO_SCHEMA@@.CoreXR_Version)
+		OR EXISTS (SELECT * FROM @@CHIRHO_SCHEMA@@.CoreXR_CollectionInitiators)
 	BEGIN
 		RAISERROR('The configuration tables are not empty. You must clear these tables first before this procedure will insert config data', 16,1);
 		RETURN -2;
 	END
 	
-	INSERT INTO CoreXR.ProfilerTraceEvents
+	INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	(EventGroup, trace_event_id, event_name, category_name, isEnabled)
 	SELECT 'default',
 		te.trace_event_id, 
@@ -70,22 +70,22 @@ BEGIN
 		INNER JOIN sys.trace_categories tc
 			ON te.category_id = tc.category_id
 	WHERE 1=1
-	--let's omit some things to keep it simpler
+	--omit some things to keep it simpler
 	AND tc.name NOT IN (N'Broker',N'Deprecation',N'Full text',N'Query Notifications',N'Server')
 	;
 
 	--Set default "on" events for each category
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'CLR'
 	;
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Cursors'
 	;
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Database'
 	AND event_name IN (
@@ -94,7 +94,7 @@ BEGIN
 	)
 	;
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Errors and Warnings'
 	AND event_name IN (
@@ -107,7 +107,7 @@ BEGIN
 		N'User Error Message'
 	);
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Locks'
 	AND event_name IN (
@@ -118,7 +118,7 @@ BEGIN
 		N'Lock:Timeout (timeout > 0)'
 	);
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Objects'
 	AND event_name IN (
@@ -128,12 +128,12 @@ BEGIN
 		N'Object:Deleted'
 	);
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'OLEDB'
 	;
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Performance'
 	AND event_name IN (
@@ -141,30 +141,30 @@ BEGIN
 		N'Showplan XML Statistics Profile'
 	);
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Progress Report'
 	;
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Scans'
 	;
 
 	--We just turn on 1 security audit event. If someone really wants to use this for security stuff, they need
 	-- to think through which events they want
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Security Audit'
 	AND event_name = N'Audit Change Database Owner'
 	;
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Sessions'
 	;
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Stored Procedures'
 	AND event_name IN (
@@ -173,13 +173,13 @@ BEGIN
 		N'SP:StmtCompleted'
 	);
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'Transactions'
 	AND event_name = N'TransactionLog'
 	;
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'TSQL'
 	AND event_name IN (
@@ -187,7 +187,7 @@ BEGIN
 		N'SQL:StmtCompleted'
 	);
 
-	UPDATE CoreXR.ProfilerTraceEvents
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 	SET isEnabled = N'Y'
 	WHERE category_name = N'User configurable'
 	;
@@ -196,7 +196,7 @@ BEGIN
 
 	--SeeOuterBatch (usually to see param values)
 	-- You can't filter by object ID for RPC, so often you filter by LIKE on the text field
-	INSERT INTO CoreXR.ProfilerTraceEvents
+	INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 		(EventGroup, trace_event_id, event_name, category_name, isEnabled)
 	SELECT N'seeouterbatch',
 		te.trace_event_id, 
@@ -235,7 +235,7 @@ BEGIN
 
 
 	--PerfCommon (events the author has used most often to tune slow statements & objects)
-	INSERT INTO CoreXR.ProfilerTraceEvents
+	INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 		(EventGroup, trace_event_id, event_name, category_name, isEnabled)
 	SELECT N'perfcommon',
 		te.trace_event_id, 
@@ -311,7 +311,7 @@ BEGIN
 
 
 	--PerfDetailed (more info for those tough tuning efforts)
-	INSERT INTO CoreXR.ProfilerTraceEvents
+	INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents
 		(EventGroup, trace_event_id, event_name, category_name, isEnabled)
 	SELECT N'perfdetailed',
 		te.trace_event_id, 
@@ -417,10 +417,10 @@ BEGIN
 	)
 	ORDER BY category_name, event_name;
 
-	INSERT INTO CoreXR.Version ([Version], EffectiveDate, EffectiveDateUTC)
+	INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Version ([Version], EffectiveDate, EffectiveDateUTC)
 		SELECT '2008R2.1', GETDATE(), GETUTCDATE();
 
-	INSERT INTO CoreXR.CollectionInitiators 
+	INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_CollectionInitiators 
 	(CollectionInitiatorID, CollectionInitiator)
 	SELECT 255, N'AutoWho.Executor' UNION ALL		--making the default trace the high key reduces page splits
 	SELECT 254, N'ServerEye.Executor' UNION ALL		-- since the default/automated trace will generate collection data

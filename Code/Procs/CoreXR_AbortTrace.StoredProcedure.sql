@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [CoreXR].[AbortTrace] 
+CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_AbortTrace
 /*   
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ CREATE PROCEDURE [CoreXR].[AbortTrace]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.AbortTrace.StoredProcedure.sql
+	FILE NAME: CoreXR_AbortTrace.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.AbortTrace
+	PROCEDURE NAME: CoreXR_AbortTrace
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -49,11 +49,11 @@ CREATE PROCEDURE [CoreXR].[AbortTrace]
 		@PreventAllDay works for the rest of the day, and thus prevents a trace with day boundaries (the default) 
 		from starting up. When the next day arrives at midnight, that signal row becomes irrelevant. However,
 		the AutoWho and ServerEye traces can be configured to span a day (e.g. 4pm to 3:59am), and in that case,
-		the signal that is entered won't stop such a trace from starting back up at 12:00am. 
+		the signal that is entered will not stop such a trace from starting back up at 12:00am. 
 
 To Execute
 ------------------------
-EXEC CoreXR.AbortTrace @Utility=N'AutoWho', @TraceID=NULL, @PreventAllDay=N'N'
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_AbortTrace @Utility=N'AutoWho', @TraceID=NULL, @PreventAllDay=N'N'
 */
 (
 	@Utility		NVARCHAR(20),
@@ -86,7 +86,7 @@ BEGIN
 			@StopTime = ss.StopTime 
 		FROM (
 			SELECT TOP 1 t.TraceID, t.StopTime
-			FROM CoreXR.[Traces] t WITH (NOLOCK)
+			FROM @@CHIRHO_SCHEMA@@.CoreXR_Traces t WITH (NOLOCK)
 			WHERE Utility = @Utility
 			ORDER BY t.TraceID DESC
 		) ss
@@ -95,7 +95,7 @@ BEGIN
 	BEGIN
 		SELECT @RowExists = t.TraceID,
 			@StopTime = t.StopTime
-		FROM CoreXR.[Traces] t WITH (NOLOCK)
+		FROM @@CHIRHO_SCHEMA@@.CoreXR_Traces t WITH (NOLOCK)
 		WHERE Utility = @Utility
 		AND t.TraceID = @TraceID;
 	END
@@ -113,7 +113,7 @@ BEGIN
 	END
 
 	--If we get this far, we have a trace that has not been stopped. Let's stop it
-	UPDATE CoreXR.Traces
+	UPDATE @@CHIRHO_SCHEMA@@.CoreXR_Traces
 	SET StopTime = GETDATE(),
 		StopTimeUTC = GETUTCDATE(),
 		AbortCode = @AbortCode
@@ -127,12 +127,12 @@ BEGIN
 			RETURN -1;
 		END
 
-		DELETE FROM AutoWho.SignalTable
+		DELETE FROM @@CHIRHO_SCHEMA@@.AutoWho_SignalTable
 		WHERE SignalName = N'AbortTrace' ;
 
 		IF UPPER(@PreventAllDay) = N'N'
 		BEGIN
-			INSERT INTO AutoWho.SignalTable 
+			INSERT INTO @@CHIRHO_SCHEMA@@.AutoWho_SignalTable 
 			(SignalName, SignalValue, InsertTime, InsertTimeUTC)
 			VALUES (N'AbortTrace', N'OneTime', GETDATE(), GETUTCDATE());	-- N'OneTime' --> the Wrapper proc, when it sees this row for the same day,
 																-- will abort the loop early and then delete this row so that
@@ -140,7 +140,7 @@ BEGIN
 		END
 		ELSE
 		BEGIN
-			INSERT INTO AutoWho.SignalTable 
+			INSERT INTO @@CHIRHO_SCHEMA@@.AutoWho_SignalTable 
 				(SignalName, SignalValue, InsertTime, InsertTimeUTC)
 			VALUES (N'AbortTrace', N'AllDay', GETDATE(), GETUTCDATE());		-- N'AllDay' --> the Wrapper proc, when it sees this row for the same day,
 																-- will abort the loop early, but wil NOT delete this row. Thus, 
@@ -156,12 +156,12 @@ BEGIN
 			RETURN -1;
 		END
 
-		DELETE FROM ServerEye.SignalTable
+		DELETE FROM @@CHIRHO_SCHEMA@@.ServerEye_SignalTable
 		WHERE SignalName = N'AbortTrace' ;
 
 		IF UPPER(@PreventAllDay) = N'N'
 		BEGIN
-			INSERT INTO ServerEye.SignalTable 
+			INSERT INTO @@CHIRHO_SCHEMA@@.ServerEye_SignalTable 
 			(SignalName, SignalValue, InsertTime, InsertTimeUTC)
 			VALUES (N'AbortTrace', N'OneTime', GETDATE(), GETUTCDATE());	-- N'OneTime' --> the Wrapper proc, when it sees this row for the same day,
 																-- will abort the loop early and then delete this row so that
@@ -169,7 +169,7 @@ BEGIN
 		END
 		ELSE
 		BEGIN
-			INSERT INTO ServerEye.SignalTable 
+			INSERT INTO @@CHIRHO_SCHEMA@@.ServerEye_SignalTable 
 				(SignalName, SignalValue, InsertTime, InsertTimeUTC)
 			VALUES (N'AbortTrace', N'AllDay', GETDATE(), GETUTCDATE());		-- N'AllDay' --> the Wrapper proc, when it sees this row for the same day,
 																-- will abort the loop early, but wil NOT delete this row. Thus, 
@@ -181,6 +181,4 @@ BEGIN
 
 	RETURN 0;
 END
-
-
 GO

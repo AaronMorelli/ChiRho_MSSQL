@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [CoreXR].[RetrieveOrdinalCacheEntry] 
+CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_RetrieveOrdinalCacheEntry
 /*   
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ CREATE PROCEDURE [CoreXR].[RetrieveOrdinalCacheEntry]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.RetrieveOrdinalCacheEntry.StoredProcedure.sql
+	FILE NAME: CoreXR_RetrieveOrdinalCacheEntry.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.RetrieveOrdinalCacheEntry
+	PROCEDURE NAME: CoreXR_RetrieveOrdinalCacheEntry
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -41,7 +41,7 @@ CREATE PROCEDURE [CoreXR].[RetrieveOrdinalCacheEntry]
 		This proc has 3 ways of ending:
 			1. Finds the @hct/@hctUTC successfully and returns 0
 
-			2. Doesn't find the @hct/@hctUTC, but this occurs in such a way as to not be worthy of an exception, but rather 
+			2. Does not find the @hct/@hctUTC, but this occurs in such a way as to not be worthy of an exception, but rather 
 				of just a warning message and a positive return code.
 
 				This gives the calling proc the choice on how to handle the inability to obtain an @hct/@hctUTC.
@@ -52,7 +52,7 @@ To Execute
 ------------------------
 DECLARE @hct DATETIME, @hctUTC DATETIME, @msg NVARCHAR(MAX);
 
-EXEC CoreXR.RetrieveOrdinalCacheEntry @ut=N'sp_XR_SessionViewer', @init=255, @st='2017-11-06 10:46', @et='2017-11-06 16:00', @ord=33, 
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_RetrieveOrdinalCacheEntry @ut=N'sp_XR_SessionViewer', @init=255, @st='2017-11-06 10:46', @et='2017-11-06 16:00', @ord=33, 
 	@hct = @hct OUTPUT, @hctUTC = @hctUTC OUTPUT, @msg = @msg OUTPUT;
 */
 (
@@ -126,7 +126,7 @@ BEGIN
 			SELECT 
 				@hct = c.CaptureTime,
 				@hctUTC = c.CaptureTimeUTC
-			FROM CoreXR.CaptureOrdinalCache c
+			FROM @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache c
 			WHERE c.Utility = @ut
 			AND c.CollectionInitiatorID = @init
 			AND c.StartTime = @st
@@ -139,7 +139,7 @@ BEGIN
 			SELECT 
 				@hct = c.CaptureTime,
 				@hctUTC = c.CaptureTimeUTC
-			FROM CoreXR.CaptureOrdinalCache c
+			FROM @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache c
 			WHERE c.Utility = @ut 
 			AND c.CollectionInitiatorID = @init
 			AND c.StartTime = @st
@@ -157,7 +157,7 @@ BEGIN
 				SELECT @scratchint = ss.Ordinal
 				FROM (
 					SELECT TOP 1 c.Ordinal		--find the latest row in the cache (if the cache even exists) and get the ordinal
-					FROM CoreXR.CaptureOrdinalCache c
+					FROM @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache c
 					WHERE c.Utility = @ut
 					AND c.CollectionInitiatorID = @init
 					AND c.StartTime = @st
@@ -171,7 +171,7 @@ BEGIN
 				SELECT @scratchint = ss.OrdinalNegative
 				FROM (
 					SELECT TOP 1 c.OrdinalNegative		--find the earliest row in the cache (if the cache even exists) and get the ordinal
-					FROM CoreXR.CaptureOrdinalCache c
+					FROM @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache c
 					WHERE c.Utility = @ut 
 					AND c.CollectionInitiatorID = @init
 					AND c.StartTime = @st
@@ -194,18 +194,18 @@ BEGIN
 
 				IF @ut IN (N'sp_XR_SessionViewer', N'sp_XR_QueryProgress')
 				BEGIN
-					--If the cache doesn't exist yet, then we need to create it, of course.
+					--If the cache does not exist yet, then we need to create it, of course.
 					-- Technically, we could do this from the AutoWho.CaptureTimes table directly,
 					-- which just holds a list of all SPIDCaptureTimes that have occurred for the AutoWho.Collector procedure.
 					-- However, we want to ensure that the AutoWho.CaptureSummary table is populated for the 
-					-- range we've been given, because as the user iterates through the AutoWho data in
+					-- range we have been given, because as the user iterates through the AutoWho data in
 					-- the order specified in their CaptureOrdinalCache, some of the fields in the 
 					-- Capture Summary table will be useful to help the Auto Who viewer procedure formulate
 					-- its queries. (e.g. one optimization is that even if the user wants to see blocking graph
 					-- info, if the Capture Summary indicates that there was no Blocking Graph generated for a given
 					-- capture time, then we can skip even looking at the blocking graph table at all).
 					SET @codeloc = 'CapSummPopEqZero1';
-					IF EXISTS (SELECT * FROM AutoWho.CaptureTimes t 
+					IF EXISTS (SELECT * FROM @@CHIRHO_SCHEMA@@.AutoWho_CaptureTimes t 
 							WHERE t.CollectionInitiatorID = @init
 							AND t.SPIDCaptureTime BETWEEN @st and @et 
 							AND (CaptureSummaryPopulated = 0 OR CaptureSummaryDeltaPopulated = 0))
@@ -213,7 +213,7 @@ BEGIN
 							--will take care of correctly handling the 2 "populated" flags for either success or failure as appropriate
 					BEGIN
 						SET @codeloc = 'ExecPopCapSumm';
-						EXEC @scratchint = AutoWho.PopulateCaptureSummary @CollectionInitiatorID = @init, @StartTime = @st, @EndTime = @et; 
+						EXEC @scratchint = @@CHIRHO_SCHEMA@@.AutoWho_PopulateCaptureSummary @CollectionInitiatorID = @init, @StartTime = @st, @EndTime = @et; 
 							--returns 1 if no rows were found in the range
 							-- -1 if there was an unexpected exception
 							-- 0 if success
@@ -237,7 +237,7 @@ BEGIN
 					--Ok, the AutoWho.CaptureSummary table now has entries for all of the capture times that occurred
 					-- between @st and @et. Now, build our cache
 					SET @codeloc = 'CapOrdCache1';
-					INSERT INTO CoreXR.CaptureOrdinalCache (
+					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache (
 						Utility, 
 						CollectionInitiatorID, 
 						StartTime, 
@@ -253,8 +253,8 @@ BEGIN
 						OrdinalNegative = 0 - ROW_NUMBER() OVER (ORDER BY ct.UTCCaptureTime DESC),
 						t.SPIDCaptureTime,
 						ct.UTCCaptureTime
-					FROM AutoWho.CaptureSummary t
-						INNER JOIN AutoWho.CaptureTimes ct
+					FROM @@CHIRHO_SCHEMA@@.AutoWho_CaptureSummary t
+						INNER JOIN @@CHIRHO_SCHEMA@@.AutoWho_CaptureTimes ct
 							ON t.UTCCaptureTime = ct.UTCCaptureTime
 					WHERE t.CollectionInitiatorID = @init
 					AND t.SPIDCaptureTime BETWEEN @st AND @et
@@ -278,7 +278,7 @@ BEGIN
 						SELECT 
 							@hct = c.CaptureTime,
 							@hctUTC = c.CaptureTimeUTC
-						FROM CoreXR.CaptureOrdinalCache c
+						FROM @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache c
 						WHERE c.Utility = @ut 
 						AND c.CollectionInitiatorID = @init
 						AND c.StartTime = @st
@@ -291,7 +291,7 @@ BEGIN
 						SELECT 
 							@hct = c.CaptureTime,
 							@hctUTC = c.CaptureTimeUTC
-						FROM CoreXR.CaptureOrdinalCache c
+						FROM @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache c
 						WHERE c.Utility = @ut 
 						AND c.CollectionInitiatorID = @init
 						AND c.StartTime = @st
@@ -307,7 +307,7 @@ BEGIN
 							SELECT @scratchint = ss.Ordinal
 							FROM (
 								SELECT TOP 1 c.Ordinal
-								FROM CoreXR.CaptureOrdinalCache c
+								FROM @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache c
 								WHERE c.Utility = @ut 
 								AND c.CollectionInitiatorID = @init
 								AND c.StartTime = @st
@@ -321,7 +321,7 @@ BEGIN
 							SELECT @scratchint = ss.OrdinalNegative
 							FROM (
 								SELECT TOP 1 c.OrdinalNegative
-								FROM CoreXR.CaptureOrdinalCache c
+								FROM @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache c
 								WHERE c.Utility = @ut 
 								AND c.CollectionInitiatorID = @init
 								AND c.StartTime = @st
@@ -364,7 +364,7 @@ BEGIN
 		--log location depends on utility
 		IF @ut IN (N'sp_XR_SessionViewer', N'sp_XR_QueryProgress')
 		BEGIN
-			EXEC AutoWho.LogEvent @ProcID=@@PROCID, @EventCode=-999, @TraceID=NULL, @Location='RetrieveOrdinalCache', @Message=@msg; 
+			EXEC @@CHIRHO_SCHEMA@@.AutoWho_LogEvent @ProcID=@@PROCID, @EventCode=-999, @TraceID=NULL, @Location='RetrieveOrdinalCache', @Message=@msg; 
 		END
 		--other utility log writes go here
 
@@ -373,5 +373,4 @@ BEGIN
 
 	RETURN 0;
 END
-
 GO

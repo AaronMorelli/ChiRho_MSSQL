@@ -19,9 +19,9 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.Version_History.Table.sql
+	FILE NAME: CoreXR_Version_History.Table.sql
 
-	TABLE NAME: CoreXR.Version_History
+	TABLE NAME: CoreXR_Version_History
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -29,7 +29,7 @@
 					sqlcrossjoin.wordpress.com
 
 	PURPOSE: A history of the ChiRho versions present in this database.
-	Populated by a set of triggers on the CoreXR.Version table.
+	Populated by a set of triggers on the CoreXR_Version table.
 */
 SET ANSI_NULLS ON
 GO

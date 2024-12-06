@@ -18,9 +18,9 @@ CREATE VIEW [CoreXR].[SessionsAndRequests] AS
    See the License for the specific language governing permissions and
    limitations under the License.
 
-	FILE NAME: CoreXR.SessionsAndRequests.View.sql
+	FILE NAME: CoreXR_SessionsAndRequests.View.sql
 
-	VIEW NAME: CoreXR.SessionsAndRequests
+	VIEW NAME: CoreXR_SessionsAndRequests
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com

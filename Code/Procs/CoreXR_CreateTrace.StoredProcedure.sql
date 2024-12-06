@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [CoreXR].[CreateTrace] 
+CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_CreateTrace
 /*   
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,25 +20,25 @@ CREATE PROCEDURE [CoreXR].[CreateTrace]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.CreateTrace.StoredProcedure.sql
+	FILE NAME: CoreXR_CreateTrace.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.CreateTrace
+	PROCEDURE NAME: CoreXR_CreateTrace
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: Creates an entry in the CoreXR.Traces table for the @Utility specified. At this time the
+	PURPOSE: Creates an entry in the CoreXR_Traces table for the @Utility specified. At this time the
 		Traces table is little more than a log table to show when various traces have started or stopped. 
 
 		@Utility is either "AutoWho" or "ServerEye" at this point in time
 
-		@Type is currently always 'Background" for values passed in via the AutoWho or ServerEye Executor).
+		@Type is currently always "Background" for values passed in via the AutoWho or ServerEye Executor).
 		The intention with this parameter is to separate background traces (i.e. started by the jobs) with
 		traces started by some sort of user-facing procedure. In the future, users may be given an interface
 		to start/stop instances of a ServerEye trace that collects some or all of the various system DMVs
@@ -54,7 +54,7 @@ CREATE PROCEDURE [CoreXR].[CreateTrace]
 
 To Execute
 ------------------------
-EXEC CoreXR.CreateTrace @Utility=N'', @Type=N'', @IntendedStopTime='2016-04-24 23:59'
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_CreateTrace @Utility=N'', @Type=N'', @IntendedStopTime='2016-04-24 23:59'
 */
 (
 	@Utility			NVARCHAR(20),
@@ -120,7 +120,7 @@ BEGIN
 
 	BEGIN TRY
 	
-		INSERT INTO CoreXR.[Traces]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Traces
 			([Utility], [Type],  --Take defaults for CreateTime, CreateTimeUTC
 				IntendedStopTime, IntendedStopTimeUTC,
 				StopTime, StopTimeUTC, AbortCode,

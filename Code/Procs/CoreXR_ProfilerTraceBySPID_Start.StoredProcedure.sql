@@ -2,9 +2,9 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE PROCEDURE [CoreXR].[ProfilerTraceBySPID_Start]
+CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceBySPID_Start
 /*   
-	Copyright 2016 Aaron Morelli
+	Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,13 +20,13 @@ CREATE PROCEDURE [CoreXR].[ProfilerTraceBySPID_Start]
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.ProfilerTraceBySPID_Start.StoredProcedure.sql
+	FILE NAME: CoreXR_ProfilerTraceBySPID_Start.StoredProcedure.sql
 
-	PROCEDURE NAME: CoreXR.ProfilerTraceBySPID_Start
+	PROCEDURE NAME: CoreXR_ProfilerTraceBySPID_Start
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -50,13 +50,13 @@ To Execute
 ------------------------
 --minimal param usage:
 DECLARE @lmsg NVARCHAR(MAX);
-EXEC [CoreXR].[ProfilerTraceBySPID_Start] @TraceCategories=N'Performance,Stored Procedures', 
+EXEC @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceBySPID_Start @TraceCategories=N'Performance,Stored Procedures', 
 												@IncludePerfWarnings=N'Y',
 												@SPID=NULL,			--defaults to current SPID
 												@Duration=250000,	--250 ms will ignore lots of unimportant statements
 												@ReturnMessage=@lmsg OUTPUT
 												;
-	--get more categories from SELECT DISTINCT category_name FROM CoreXR.ProfilerTraceEvents
+	--get more categories from SELECT DISTINCT category_name FROM CoreXR_ProfilerTraceEvents
 	--or can pass "All" to @TraceCategories to choose everything in a given @EventGroup
 
 Then to stop the trace, call:
@@ -64,9 +64,9 @@ Then to stop the trace, call:
 */
 (
 	@TraceFileDirectory		NVARCHAR(210)	= NULL,		--Default to placing this with the SQL black box trace file or the master db (in that order)
-	@TraceCategories		NVARCHAR(256)	= N'',		-- a list of categories from CoreXR.ProfilerTraceEvents
+	@TraceCategories		NVARCHAR(256)	= N'',		-- a list of categories from CoreXR_ProfilerTraceEvents
 	@IncludePerfWarnings	NCHAR(1)		= N'N',		-- Y/N -- if Y, will include the various perf warnings even if the "Errors and Warnings" category is not chosen
-	@EventGroup				NVARCHAR(40)	= N'',		-- if NULL or "", defaults to "Default". Otherwise, looks in the CoreXR.ProfilerTraceEvents table to pull that set of events
+	@EventGroup				NVARCHAR(40)	= N'',		-- if NULL or "", defaults to "Default". Otherwise, looks in the CoreXR_ProfilerTraceEvents table to pull that set of events
 
 	--Filters
 	@SPID					INT				= NULL,		--Defaults to the current SPID. 0 means no filtering by SPID. Otherwise, must be positive
@@ -192,7 +192,7 @@ BEGIN TRY
 		END
 		ELSE
 		BEGIN
-			IF NOT EXISTS (SELECT * FROM CoreXR.ProfilerTraceEvents p
+			IF NOT EXISTS (SELECT * FROM @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents p
 									WHERE p.EventGroup = @EventGroup COLLATE SQL_Latin1_General_CP1_CI_AS)
 			BEGIN
 				SET @ReturnMessage = N'@EventGroup must refer to a valid Event Group in the core XR trace events table.';
@@ -413,7 +413,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -15;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -427,14 +427,14 @@ BEGIN TRY
 	
 	SET @FullPathname = @TraceFileDirectory + @TraceFileName;
 
-	--SELECT * FROM CoreXR.ProfilerTraceEvents
+	--SELECT * FROM CoreXR_ProfilerTraceEvents
 	IF @TraceCategories = N'All' COLLATE SQL_Latin1_General_CP1_CI_AS
 	BEGIN
 		INSERT INTO @IncludedTraceEvents (
 			trace_event_id, event_name
 		)
 		SELECT trace_event_id, event_name
-		FROM CoreXR.ProfilerTraceEvents p
+		FROM @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents p
 		WHERE p.EventGroup = @EventGroup COLLATE SQL_Latin1_General_CP1_CI_AS
 		AND isEnabled = N'Y'
 		;
@@ -444,7 +444,7 @@ BEGIN TRY
 		IF EXISTS (SELECT * 
 					FROM @TraceCats t 
 					WHERE NOT EXISTS (
-						SELECT * FROM CoreXR.ProfilerTraceEvents p
+						SELECT * FROM @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents p
 						WHERE p.category_name = t.CategoryName COLLATE SQL_Latin1_General_CP1_CI_AS
 						)
 					)
@@ -458,7 +458,7 @@ BEGIN TRY
 			trace_event_id, event_name
 		)
 		SELECT trace_event_id, event_name
-		FROM CoreXR.ProfilerTraceEvents p
+		FROM @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents p
 			INNER JOIN @TraceCats c
 				ON p.category_name = c.CategoryName COLLATE SQL_Latin1_General_CP1_CI_AS
 		WHERE p.EventGroup = @EventGroup COLLATE SQL_Latin1_General_CP1_CI_AS
@@ -474,7 +474,7 @@ BEGIN TRY
 			trace_event_id, event_name
 		)
 		SELECT p.trace_event_id, p.event_name
-		FROM CoreXR.ProfilerTraceEvents p
+		FROM @@CHIRHO_SCHEMA@@.CoreXR_ProfilerTraceEvents p
 		WHERE EventGroup = N'default'			--this EG should always exist
 		AND category_name = N'Errors and Warnings'
 		AND event_name IN (
@@ -494,7 +494,7 @@ BEGIN TRY
 	BEGIN
 		SET @ReturnMessage = N'No events defined for inclusion in this trace. Exiting...'
 		SET @ErrorCode = -17;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -504,7 +504,7 @@ BEGIN TRY
 
 	SET @IntendedStopTime = DATEADD(MINUTE, @SafetyStop, GETDATE());
 	BEGIN TRY
-		EXEC @CoreXRTraceHandle = CoreXR.CreateTrace @Utility='Profiler', @Type='Foreground', 
+		EXEC @CoreXRTraceHandle = @@CHIRHO_SCHEMA@@.CoreXR_CreateTrace @Utility='Profiler', @Type='Foreground', 
 							@IntendedStopTime=@IntendedStopTime, 
 							@Payload_int = @SPID,
 							@Payload_nvarchar = @FullPathname;
@@ -513,7 +513,7 @@ BEGIN TRY
 		BEGIN
 			SET @ReturnMessage = N'Received invalid CoreXR trace handle: ' + ISNULL(CONVERT(NVARCHAR(20),@CoreXRTraceHandle),N'<null>');
 			SET @ErrorCode = -17;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -527,7 +527,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -18;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -550,7 +550,7 @@ BEGIN TRY
 		BEGIN
 			SET @ReturnMessage = N'sp_trace_create returned a NULL @traceid return parameter.';
 			SET @ErrorCode = -19;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -560,7 +560,7 @@ BEGIN TRY
 		BEGIN
 			SET @ReturnMessage = N'sp_trace_create returned a <= 0 @traceid return parameter: ' + CONVERT(NVARCHAR(20),@TraceID);
 			SET @ErrorCode = -20;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -570,7 +570,7 @@ BEGIN TRY
 		BEGIN
 			SET @ReturnMessage = N'sp_trace_create returned a non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 			SET @ErrorCode = -21;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -584,7 +584,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -22;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -635,7 +635,7 @@ BEGIN TRY
 					DEALLOCATE iterateCurrentEvents;
 					SET @ReturnMessage = N'sp_trace_setevent returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 					SET @ErrorCode = -23;
-					INSERT INTO CoreXR.[Log]
+					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 						(LogDT, ErrorCode, LocationTag, LogMessage)
 					SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 					RETURN @ErrorCode;
@@ -670,7 +670,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -24;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -708,13 +708,13 @@ BEGIN TRY
 			BEGIN
 				SET @ReturnMessage = N'sp_trace_setfilter (when filtering by SPID) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 				SET @ErrorCode = -25;
-				INSERT INTO CoreXR.[Log]
+				INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 					(LogDT, ErrorCode, LocationTag, LogMessage)
 				SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 				RETURN @ErrorCode;
 			END
 
-			--if we want to filter out rows that don't tie to a particular SPID, we must filter OUT 
+			--if we want to filter out rows that do not tie to a particular SPID, we must filter OUT 
 			-- NULL values as per this link: https://msdn.microsoft.com/en-us/library/ms174404.aspx
 			/*
 			 EXEC sp_trace_setfilter @TraceID, 
@@ -733,7 +733,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -26;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -755,7 +755,7 @@ BEGIN TRY
 			BEGIN
 				SET @ReturnMessage = N'sp_trace_setfilter (when filtering by duration) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 				SET @ErrorCode = -27;
-				INSERT INTO CoreXR.[Log]
+				INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 					(LogDT, ErrorCode, LocationTag, LogMessage)
 				SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 				RETURN @ErrorCode;
@@ -770,7 +770,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -28;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -791,7 +791,7 @@ BEGIN TRY
 			BEGIN
 				SET @ReturnMessage = N'sp_trace_setfilter (when filtering by nest level) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 				SET @ErrorCode = -29;
-				INSERT INTO CoreXR.[Log]
+				INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 					(LogDT, ErrorCode, LocationTag, LogMessage)
 				SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 				RETURN @ErrorCode;
@@ -806,7 +806,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 			SET @ErrorCode = -30;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -834,7 +834,7 @@ BEGIN TRY
 					DEALLOCATE curs1;
 					SET @ReturnMessage = N'sp_trace_setfilter (when filtering by obj id inclusions) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 					SET @ErrorCode = -31;
-					INSERT INTO CoreXR.[Log]
+					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 						(LogDT, ErrorCode, LocationTag, LogMessage)
 					SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 					RETURN @ErrorCode;
@@ -864,7 +864,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -32;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -892,7 +892,7 @@ BEGIN TRY
 					DEALLOCATE curs2;
 					SET @ReturnMessage = N'sp_trace_setfilter (when filtering by obj id exclusions) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 					SET @ErrorCode = -33;
-					INSERT INTO CoreXR.[Log]
+					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 						(LogDT, ErrorCode, LocationTag, LogMessage)
 					SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 					RETURN @ErrorCode;
@@ -922,7 +922,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -34;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -951,7 +951,7 @@ BEGIN TRY
 					DEALLOCATE curs3;
 					SET @ReturnMessage = N'sp_trace_setfilter (when filtering by obj name inclusions) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 					SET @ErrorCode = -35;
-					INSERT INTO CoreXR.[Log]
+					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 						(LogDT, ErrorCode, LocationTag, LogMessage)
 					SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 					RETURN @ErrorCode;
@@ -981,7 +981,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -36;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -1008,7 +1008,7 @@ BEGIN TRY
 					DEALLOCATE curs4;
 					SET @ReturnMessage = N'sp_trace_setfilter (when filtering by obj name exclusions) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 					SET @ErrorCode = -37;
-					INSERT INTO CoreXR.[Log]
+					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 						(LogDT, ErrorCode, LocationTag, LogMessage)
 					SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 					RETURN @ErrorCode;
@@ -1038,7 +1038,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -38;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -1066,7 +1066,7 @@ BEGIN TRY
 					DEALLOCATE curs5;
 					SET @ReturnMessage = N'sp_trace_setfilter (when filtering by error # inclusion) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 					SET @ErrorCode = -39;
-					INSERT INTO CoreXR.[Log]
+					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 						(LogDT, ErrorCode, LocationTag, LogMessage)
 					SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 					RETURN @ErrorCode;
@@ -1096,7 +1096,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -40;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -1123,7 +1123,7 @@ BEGIN TRY
 					DEALLOCATE curs5;
 					SET @ReturnMessage = N'sp_trace_setfilter (when filtering by error # exclusion) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 					SET @ErrorCode = -41;
-					INSERT INTO CoreXR.[Log]
+					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 						(LogDT, ErrorCode, LocationTag, LogMessage)
 					SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 					RETURN @ErrorCode;
@@ -1153,7 +1153,7 @@ BEGIN TRY
 			CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 			ERROR_MESSAGE();
 		SET @ErrorCode = -42;
-		INSERT INTO CoreXR.[Log]
+		INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 			(LogDT, ErrorCode, LocationTag, LogMessage)
 		SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 		RETURN @ErrorCode;
@@ -1167,7 +1167,7 @@ BEGIN TRY
 		BEGIN
 			SET @ReturnMessage = N'sp_trace_setstatus (when starting the trace) returned non-zero return code: ' + ISNULL(CONVERT(NVARCHAR(20),@rc),N'<null>');
 			SET @ErrorCode = -43;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -1177,7 +1177,7 @@ BEGIN TRY
 		BEGIN
 			SET @ReturnMessage = N'Trace handle returned from sp_trace_setstatus is invalid: ' + ISNULL(CONVERT(NVARCHAR(20),@TraceID),N'<null>');
 			SET @ErrorCode = -44;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -1185,7 +1185,7 @@ BEGIN TRY
 
 		SET @TID = @TraceID;
 
-		UPDATE CoreXR.Traces
+		UPDATE @@CHIRHO_SCHEMA@@.CoreXR_Traces
 		SET Payload_bigint = @TraceID,
 			Payload_datetime = GETDATE()		--trace create time; can correlate to sys.traces.start_time
 		WHERE TraceID = @CoreXRTraceHandle;
@@ -1202,7 +1202,7 @@ BEGIN TRY
 			ERROR_MESSAGE();
 
 			SET @ErrorCode = -45;
-			INSERT INTO CoreXR.[Log]
+			INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 				(LogDT, ErrorCode, LocationTag, LogMessage)
 			SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 			RETURN @ErrorCode;
@@ -1216,7 +1216,7 @@ BEGIN CATCH
 		CONVERT(NVARCHAR(20),ERROR_LINE()) + N'; Msg ' + 
 		ERROR_MESSAGE();
 	SET @ErrorCode = -999;
-	INSERT INTO CoreXR.[Log]
+	INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Log
 		(LogDT, ErrorCode, LocationTag, LogMessage)
 	SELECT SYSDATETIME(), @ErrorCode, OBJECT_NAME(@@PROCID), @ReturnMessage
 	RETURN @ErrorCode;
