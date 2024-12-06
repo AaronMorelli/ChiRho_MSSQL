@@ -1,5 +1,5 @@
 /*
-   Copyright 2024 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,36 +19,40 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.Version.Table.sql
+	FILE NAME: CoreXR_trgUPD_CoreXRVersion.sql
 
-	TABLE NAME: CoreXR.Version
+	TRIGGER NAME: CoreXR_trgUPD_CoreXRVersion
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: One-row table with the current version of the ChiRho system (which is based on the version and type
-	of the SQL Server instance that this installation of ChiRho is running on). This allows code in ChiRho to easily
-	check for whether certain functionality (e.g. columns in a DMV) is available or not.
+	PURPOSE: Maintains the CoreXR_Version_History table
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TABLE @@COREXR_SCHEMA@@.Version(
-	[Version] [nvarchar](30) NOT NULL,
-	[InstanceType] [nvarchar](30) NOT NULL,
-	[EffectiveDate] [datetime] NOT NULL,
-	[EffectiveDateUTC] [datetime] NOT NULL
-) ON [PRIMARY]
+CREATE TRIGGER @@CHIRHO_SCHEMA@@.CoreXR_trgUPD_CoreXRVersion ON @@CHIRHO_SCHEMA@@.CoreXR_Version
 
-GO
-ALTER TABLE @@COREXR_SCHEMA@@.Version ADD  CONSTRAINT [DF_Version_EffectiveDate]  DEFAULT (GETDATE()) FOR [EffectiveDate]
-GO
-ALTER TABLE @@COREXR_SCHEMA@@.Version ADD  CONSTRAINT [DF_Version_EffectiveDateUTC]  DEFAULT (GETUTCDATE()) FOR [EffectiveDateUTC]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
+FOR UPDATE
+AS 	BEGIN
+
+INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Version_History 
+([Version], 
+EffectiveDate, 
+EffectiveDateUTC,
+HistoryInsertDate,
+HistoryInsertDateUTC,
+TriggerAction)
+SELECT 
+[Version], 
+EffectiveDate, 
+EffectiveDateUTC,
+GETDATE(),
+GETUTCDATE(),
+'Update'
+FROM inserted
+END
 GO

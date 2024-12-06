@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,45 +15,33 @@
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.trgDEL_CoreXRVersion.sql
+	FILE NAME: CoreXR.Version_History.Table.sql
 
-	TRIGGER NAME: CoreXR.trgDEL_CoreXRVersion
+	TABLE NAME: CoreXR.Version_History
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: Maintains the CoreXR.Version_History table
+	PURPOSE: A history of the ChiRho versions present in this database.
+	Populated by a set of triggers on the CoreXR.Version table.
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TRIGGER [CoreXR].[trgDEL_CoreXRVersion] ON [CoreXR].[Version]
+CREATE TABLE @@CHIRHO_SCHEMA@@.CoreXR_Version_History(
+	[Version] [nvarchar](30) NOT NULL,
+	[EffectiveDate] [datetime] NOT NULL,
+	[EffectiveDateUTC] [datetime] NOT NULL,
+	[HistoryInsertDate] [datetime] NOT NULL,
+	[HistoryInsertDateUTC] [datetime] NOT NULL,
+	[TriggerAction] [nvarchar](20) NOT NULL
+) ON [PRIMARY]
 
-FOR DELETE
-AS 	BEGIN
-
-INSERT INTO CoreXR.Version_History 
-([Version], 
-EffectiveDate, 
-EffectiveDateUTC,
-HistoryInsertDate, 
-HistoryInsertDateUTC,
-TriggerAction)
-SELECT 
-Version, 
-EffectiveDate, 
-EffectiveDateUTC,
-GETDATE(),
-GETUTCDATE(),
-'Delete'
-FROM deleted
-END
 GO
-

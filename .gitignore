@@ -2,6 +2,8 @@ InstallationLogs/*.log
 
 InstallationLogs/*.txt
 
+InstallerScripts/TempDB_Install/*.sql
+
 master/*.sql
 
 !master/sp_XR_FileUsage.sql

@@ -1,5 +1,5 @@
 /*
-   Copyright 2024 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,31 +19,48 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.ProcessingTimes.Table.sql
+	FILE NAME: CoreXR_DBIDNameMapping.Table.sql
 
-	TABLE NAME: CoreXR.ProcessingTimes
+	TABLE NAME: CoreXR_DBIDNameMapping
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: Contains a list of tags (used by various components of the CoreXR
-	system) and a "last processed" time for that tag, essentially recording the
-	high watermark for various post-processing procedures that do analysis or
-	data modification on already collected data.
+	PURPOSE: The various components of ChiRho typically store just the DBID.
+	This table provides a mapping and serves as a type-2 dimension, handling
+	changes over time.
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TABLE @@COREXR_SCHEMA@@.ProcessingTimes(
-	[Label] [nvarchar](50) NOT NULL,
-	[LastProcessedTimeUTC] [datetime2](7) NULL,
-	[LastProcessedTime] [datetime2](7) NULL,
-CONSTRAINT [PKProcessingTimes] PRIMARY KEY CLUSTERED 
+CREATE TABLE @@CHIRHO_SCHEMA@@.CoreXR_DBIDNameMapping(
+	[DBID]					[int] NOT NULL,
+	[DBName]				[nvarchar](256) NOT NULL,
+	[EffectiveStartTimeUTC] [datetime] NOT NULL,
+	[EffectiveEndTimeUTC]	[datetime] NULL,
+	[EffectiveStartTime]	[datetime] NOT NULL,
+	[EffectiveEndTime]		[datetime] NULL,
+ CONSTRAINT [PKDBIDNameMapping] PRIMARY KEY CLUSTERED 
 (
-	[Label] ASC
+	[DBName] ASC,
+	[EffectiveStartTimeUTC] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 ) ON [PRIMARY]
+
+GO
+SET ANSI_PADDING ON
+
+GO
+CREATE UNIQUE NONCLUSTERED INDEX [AKDBIDNameMapping] ON @@CHIRHO_SCHEMA@@.CoreXR_DBIDNameMapping
+(
+	[DBID] ASC,
+	[EffectiveStartTimeUTC] ASC
+)
+INCLUDE ( 	[DBName],
+	[EffectiveEndTimeUTC],
+	[EffectiveStartTime],
+	[EffectiveEndTime]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 GO

@@ -1,5 +1,5 @@
 /*
-   Copyright 2024 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,33 +15,40 @@
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.Version_History.Table.sql
+	FILE NAME: CoreXR_Version.Table.sql
 
-	TABLE NAME: CoreXR.Version_History
+	TABLE NAME: CoreXR_Version
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: A history of the ChiRho versions present in this database.
-	Populated by a set of triggers on the CoreXR.Version table.
+	PURPOSE: One-row table with the current version of the ChiRho system (which is based on the version and type
+	of the SQL Server instance that this installation of ChiRho is running on). This allows code in ChiRho to easily
+	check for whether certain functionality (e.g. columns in a DMV) is available or not.
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TABLE @@COREXR_SCHEMA@@.Version_History(
+CREATE TABLE @@CHIRHO_SCHEMA@@.CoreXR_Version(
 	[Version] [nvarchar](30) NOT NULL,
+	[InstanceType] [nvarchar](30) NOT NULL,
 	[EffectiveDate] [datetime] NOT NULL,
-	[EffectiveDateUTC] [datetime] NOT NULL,
-	[HistoryInsertDate] [datetime] NOT NULL,
-	[HistoryInsertDateUTC] [datetime] NOT NULL,
-	[TriggerAction] [nvarchar](20) NOT NULL
+	[EffectiveDateUTC] [datetime] NOT NULL
 ) ON [PRIMARY]
 
+GO
+ALTER TABLE @@CHIRHO_SCHEMA@@.CoreXR_Version ADD  CONSTRAINT [DF_Version_EffectiveDate]  DEFAULT (GETDATE()) FOR [EffectiveDate]
+GO
+ALTER TABLE @@CHIRHO_SCHEMA@@.CoreXR_Version ADD  CONSTRAINT [DF_Version_EffectiveDateUTC]  DEFAULT (GETUTCDATE()) FOR [EffectiveDateUTC]
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
 GO

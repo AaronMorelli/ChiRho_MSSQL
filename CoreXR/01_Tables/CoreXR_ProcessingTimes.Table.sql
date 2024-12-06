@@ -1,5 +1,5 @@
 /*
-   Copyright 2024 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,44 +19,31 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.Traces.Table.sql
+	FILE NAME: CoreXR_ProcessingTimes.Table.sql
 
-	TABLE NAME: CoreXR.Traces
+	TABLE NAME: CoreXR_ProcessingTimes
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: Table for storing generic trace entities used by various
-	components in the ChiRho system
+	PURPOSE: Contains a list of tags (used by various components of the CoreXR
+	system) and a "last processed" time for that tag, essentially recording the
+	high watermark for various post-processing procedures that do analysis or
+	data modification on already collected data.
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TABLE @@COREXR_SCHEMA@@.Traces(
-	[TraceID] [int] IDENTITY(1,1) NOT NULL,
-	[Utility] [nvarchar](20) NOT NULL,
-	[Type] [nvarchar](20) NOT NULL CONSTRAINT [DF_CoreXRTraces_Type]  DEFAULT (N'N''Background'),
-	[CreateTime] [datetime] NOT NULL CONSTRAINT [DF_CoreXRTraces_CreateTime]  DEFAULT (getdate()),
-	[CreateTimeUTC] [datetime] NOT NULL CONSTRAINT [DF_CoreXRTraces_CreateTimeUTC]  DEFAULT (getutcdate()),
-	[IntendedStopTime] [datetime] NOT NULL,
-	[IntendedStopTimeUTC] [datetime] NOT NULL,
-	[StopTime] [datetime] NULL,
-	[StopTimeUTC] [datetime] NULL,
-	[AbortCode] [nchar](1) NULL,
-	[TerminationMessage] [nvarchar](MAX) NULL,
-	[Payload_int] [int] NULL,
-	[Payload_bigint] [bigint] NULL, 
-	[Payload_decimal] [decimal](28,9) NULL,
-	[Payload_datetime] [datetime] NULL,
-	[Payload_datetimeUTC] [datetime] NULL,
-	[Payload_nvarchar] [nvarchar](MAX) NULL
- CONSTRAINT [PKCoreXRTraces] PRIMARY KEY CLUSTERED 
+CREATE TABLE @@CHIRHO_SCHEMA@@.CoreXR_ProcessingTimes(
+	[Label] [nvarchar](50) NOT NULL,
+	[LastProcessedTimeUTC] [datetime2](7) NULL,
+	[LastProcessedTime] [datetime2](7) NULL,
+CONSTRAINT [PKProcessingTimes] PRIMARY KEY CLUSTERED 
 (
-	[TraceID] ASC
+	[Label] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 ) ON [PRIMARY]
-
 GO

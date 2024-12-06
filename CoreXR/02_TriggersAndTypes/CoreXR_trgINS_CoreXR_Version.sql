@@ -1,5 +1,5 @@
 /*
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -15,31 +15,31 @@
 
 	------------------------------------------------------------------------
 
-	PROJECT NAME: ChiRho https://github.com/AaronMorelli/ChiRho
+	PROJECT NAME: ChiRho for SQL Server https://github.com/AaronMorelli/ChiRho_MSSQL
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.trgINS_CoreXRVersion.sql
+	FILE NAME: CoreXR_trgINS_CoreXR_Version.sql
 
-	TRIGGER NAME: CoreXR.trgINS_CoreXRVersion
+	TRIGGER NAME: CoreXR_trgINS_CoreXR_Version
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: Maintains the CoreXR.Version_History table
+	PURPOSE: Maintains the CoreXR_Version_History table
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TRIGGER [CoreXR].[trgINS_CoreXRVersion] ON [CoreXR].[Version]
+CREATE TRIGGER @@CHIRHO_SCHEMA@@.CoreXR_trgINS_CoreXR_Version ON @@CHIRHO_SCHEMA@@.CoreXR_Version
 
 FOR INSERT
 AS 	BEGIN
 
-INSERT INTO CoreXR.Version_History
+INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Version_History
 ([Version], 
 EffectiveDate, 
 EffectiveDateUTC,

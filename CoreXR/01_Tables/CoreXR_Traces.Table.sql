@@ -1,5 +1,5 @@
 /*
-   Copyright 2024 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,48 +19,44 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.DBIDNameMapping.Table.sql
+	FILE NAME: CoreXR_Traces.Table.sql
 
-	TABLE NAME: CoreXR.DBIDNameMapping
+	TABLE NAME: CoreXR_Traces
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: The various components of ChiRho typically store just the DBID.
-	This table provides a mapping and serves as a type-2 dimension, handling
-	changes over time.
+	PURPOSE: Table for storing generic trace entities used by various
+	components in the ChiRho system
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TABLE @@COREXR_SCHEMA@@.DBIDNameMapping(
-	[DBID]					[int] NOT NULL,
-	[DBName]				[nvarchar](256) NOT NULL,
-	[EffectiveStartTimeUTC] [datetime] NOT NULL,
-	[EffectiveEndTimeUTC]	[datetime] NULL,
-	[EffectiveStartTime]	[datetime] NOT NULL,
-	[EffectiveEndTime]		[datetime] NULL,
- CONSTRAINT [PKDBIDNameMapping] PRIMARY KEY CLUSTERED 
+CREATE TABLE @@CHIRHO_SCHEMA@@.CoreXR_Traces(
+	[TraceID] [int] IDENTITY(1,1) NOT NULL,
+	[Utility] [nvarchar](20) NOT NULL,
+	[Type] [nvarchar](20) NOT NULL CONSTRAINT [DF_CoreXRTraces_Type]  DEFAULT (N'N''Background'),
+	[CreateTime] [datetime] NOT NULL CONSTRAINT [DF_CoreXRTraces_CreateTime]  DEFAULT (getdate()),
+	[CreateTimeUTC] [datetime] NOT NULL CONSTRAINT [DF_CoreXRTraces_CreateTimeUTC]  DEFAULT (getutcdate()),
+	[IntendedStopTime] [datetime] NOT NULL,
+	[IntendedStopTimeUTC] [datetime] NOT NULL,
+	[StopTime] [datetime] NULL,
+	[StopTimeUTC] [datetime] NULL,
+	[AbortCode] [nchar](1) NULL,
+	[TerminationMessage] [nvarchar](MAX) NULL,
+	[Payload_int] [int] NULL,
+	[Payload_bigint] [bigint] NULL, 
+	[Payload_decimal] [decimal](28,9) NULL,
+	[Payload_datetime] [datetime] NULL,
+	[Payload_datetimeUTC] [datetime] NULL,
+	[Payload_nvarchar] [nvarchar](MAX) NULL
+ CONSTRAINT [PKCoreXRTraces] PRIMARY KEY CLUSTERED 
 (
-	[DBName] ASC,
-	[EffectiveStartTimeUTC] ASC
+	[TraceID] ASC
 )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 ) ON [PRIMARY]
 
-GO
-SET ANSI_PADDING ON
-
-GO
-CREATE UNIQUE NONCLUSTERED INDEX [AKDBIDNameMapping] ON @@COREXR_SCHEMA@@.DBIDNameMapping
-(
-	[DBID] ASC,
-	[EffectiveStartTimeUTC] ASC
-)
-INCLUDE ( 	[DBName],
-	[EffectiveEndTimeUTC],
-	[EffectiveStartTime],
-	[EffectiveEndTime]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 GO

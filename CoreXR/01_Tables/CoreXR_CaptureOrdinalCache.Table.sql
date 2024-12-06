@@ -1,5 +1,5 @@
 /*
-   Copyright 2024 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR.CaptureOrdinalCache.Table.sql
+	FILE NAME: CoreXR_CaptureOrdinalCache.Table.sql
 
-	TABLE NAME: CoreXR.CaptureOrdinalCache
+	TABLE NAME: CoreXR_CaptureOrdinalCache
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
@@ -37,7 +37,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TABLE @@COREXR_SCHEMA@@.CaptureOrdinalCache(
+CREATE TABLE @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache(
 	[Utility] [nvarchar](30) NOT NULL,
 	[CollectionInitiatorID] [tinyint] NOT NULL,
 	[StartTime] [datetime] NOT NULL,		--We don't have UTC versions of these 2 time fields because we expect the user
@@ -62,7 +62,7 @@ CREATE TABLE @@COREXR_SCHEMA@@.CaptureOrdinalCache(
 ) ON [PRIMARY]
 
 GO
-CREATE UNIQUE NONCLUSTERED INDEX [UNCL_OrdinalNegative] ON @@COREXR_SCHEMA@@.CaptureOrdinalCache
+CREATE UNIQUE NONCLUSTERED INDEX [UNCL_OrdinalNegative] ON @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache
 (
 	[Utility] ASC,
 	[CollectionInitiatorID] ASC,
@@ -76,7 +76,7 @@ INCLUDE ( 	[Ordinal],
 	[TimePopulated]) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, 
 		IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
 GO
-ALTER TABLE @@COREXR_SCHEMA@@.CaptureOrdinalCache ADD  CONSTRAINT [DF_CoreXR_CaptureOrdinalCache_TimePopulated]  DEFAULT (GETDATE()) FOR [TimePopulated]
+ALTER TABLE @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache ADD  CONSTRAINT [DF_CoreXR_CaptureOrdinalCache_TimePopulated]  DEFAULT (GETDATE()) FOR [TimePopulated]
 GO
-ALTER TABLE @@COREXR_SCHEMA@@.CaptureOrdinalCache ADD  CONSTRAINT [DF_CoreXR_CaptureOrdinalCache_TimePopulatedUTC]  DEFAULT (GETUTCDATE()) FOR [TimePopulatedUTC]
+ALTER TABLE @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache ADD  CONSTRAINT [DF_CoreXR_CaptureOrdinalCache_TimePopulatedUTC]  DEFAULT (GETUTCDATE()) FOR [TimePopulatedUTC]
 GO
