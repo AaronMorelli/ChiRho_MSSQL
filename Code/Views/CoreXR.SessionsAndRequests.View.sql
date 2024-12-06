@@ -4,7 +4,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 CREATE VIEW [CoreXR].[SessionsAndRequests] AS
 /*   
-   Copyright 2016 Aaron Morelli
+   Copyright 2016, 2024 Aaron Morelli
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -93,17 +93,17 @@ SELECT SPIDCaptureTime,
 	mgrant__request_time, mgrant__grant_time, mgrant__requested_memory_kb, mgrant__required_memory_kb, 
 	mgrant__used_memory_kb, mgrant__max_used_memory_kb, mgrant__dop, calc__record_priority,  
 	calc__block_relevant, calc__return_to_user,  calc__sysspid_isinteresting
-FROM AutoWho.SessionsAndRequests sar
-	LEFT OUTER JOIN AutoWho.DimCommand dc
+FROM @@CHIRHO_SCHEMA@@.AutoWho_SessionsAndRequests sar
+	LEFT OUTER JOIN @@CHIRHO_SCHEMA@@.AutoWho_DimCommand dc
 		ON sar.rqst__FKDimCommand = dc.DimCommandID
-	LEFT OUTER JOIN AutoWho.DimConnectionAttribute dca
+	LEFT OUTER JOIN @@CHIRHO_SCHEMA@@.AutoWho_DimConnectionAttribute dca
 		ON sar.conn__FKDimConnectionAttribute = dca.DimConnectionAttributeID
-	LEFT OUTER JOIN AutoWho.DimLoginName dln
+	LEFT OUTER JOIN @@CHIRHO_SCHEMA@@.AutoWho_DimLoginName dln
 		ON sar.sess__FKDimLoginName = dln.DimLoginNameID
-	LEFT OUTER JOIN AutoWho.DimNetAddress dna
+	LEFT OUTER JOIN @@CHIRHO_SCHEMA@@.AutoWho_DimNetAddress dna
 		ON sar.conn__FKDimNetAddress = dna.DimNetAddressID
-	LEFT OUTER JOIN AutoWho.DimSessionAttribute dsa
+	LEFT OUTER JOIN @@CHIRHO_SCHEMA@@.AutoWho_DimSessionAttribute dsa
 		ON sar.sess__FKDimSessionAttribute = dsa.DimSessionAttributeID
-	LEFT OUTER JOIN AutoWho.DimWaitType dwt
+	LEFT OUTER JOIN @@CHIRHO_SCHEMA@@.AutoWho_DimWaitType dwt
 		ON sar.rqst__FKDimWaitType = dwt.DimWaitTypeID
 GO

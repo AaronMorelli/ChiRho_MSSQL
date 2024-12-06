@@ -44,7 +44,7 @@ CREATE TABLE @@CHIRHO_SCHEMA@@.CoreXR_SQLBatchStore(
 	[objectid]					[int] NOT NULL,
 	[fail_to_obtain]			[bit] NOT NULL,
 	[batch_text]				[nvarchar](max) NOT NULL,
-	[InsertedBy_UTCCaptureTime]	[datetime] NOT NULL,	--In AutoWho, these 2 fields map to UTCCaptureTime in AutoWho.CaptureTimes,
+	[InsertedBy_UTCCaptureTime]	[datetime] NOT NULL,	--In AutoWho, these 2 fields map to UTCCaptureTime in @@CHIRHO_SCHEMA@@.AutoWho_CaptureTimes,
 	[LastTouchedBy_UTCCaptureTime] [datetime] NOT NULL,
  CONSTRAINT [PKSQLBatchStore] PRIMARY KEY CLUSTERED 
 (

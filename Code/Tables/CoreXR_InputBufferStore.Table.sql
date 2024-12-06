@@ -41,7 +41,7 @@ CREATE TABLE @@CHIRHO_SCHEMA@@.CoreXR_InputBufferStore(
 	[PKInputBufferStoreID]		[bigint] IDENTITY(1,1) NOT NULL,
 	[AWBufferHash]				[varbinary](64) NOT NULL,
 	[InputBuffer]				[nvarchar](4000) NOT NULL,
-	[InsertedBy_UTCCaptureTime]	[datetime] NOT NULL,	--In AutoWho, these 2 fields map to UTCCaptureTime in AutoWho.CaptureTimes,
+	[InsertedBy_UTCCaptureTime]	[datetime] NOT NULL,	--In AutoWho, these 2 fields map to UTCCaptureTime in @@CHIRHO_SCHEMA@@.AutoWho_CaptureTimes,
 	[LastTouchedBy_UTCCaptureTime] [datetime] NOT NULL,
  CONSTRAINT [PKInputBufferStore] PRIMARY KEY CLUSTERED 
 (

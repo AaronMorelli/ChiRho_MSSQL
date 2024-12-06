@@ -42,7 +42,7 @@ CREATE PROCEDURE @@CHIRHO_SCHEMA@@.CoreXR_AbortTrace
 
 	@PreventAllDay: if "N", aborts the currently-running trace but does not prevent the trace from being started
 		up again (e.g. 15 min later by the "Every 15 Minute" Master job). If "Y", places a row into
-		a signal table (e.g. AutoWho.SignalTable or ServerEye.SignalTable) that indicates that the trace
+		a signal table (e.g. @@CHIRHO_SCHEMA@@.AutoWho_SignalTable or ServerEye_SignalTable) that indicates that the trace
 		should not be started up for the rest of the calendar day. 
 
 	OUTSTANDING ISSUES: 

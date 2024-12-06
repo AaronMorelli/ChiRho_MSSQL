@@ -176,9 +176,9 @@ BEGIN
 			1. Check whether the AutoWho and ServerEye jobs are running, and start, if appropriate.
 
 			2. After we begin (or not) each job, we run supporting procs for each:
-				a. AutoWho.UpdateStoreLastTouched
-				b. TODO: ServerEye.UpdateStoreLastTouche	<-- this proc does not exist yet, but likely will at some point
-				c. AutoWho.PostProcessor
+				a. @@CHIRHO_SCHEMA@@.AutoWho_UpdateStoreLastTouched
+				b. TODO: ServerEye_UpdateStoreLastTouche	<-- this proc does not exist yet, but likely will at some point
+				c. @@CHIRHO_SCHEMA@@.AutoWho_PostProcessor
 				d. AutoWho Purge
 				e. AutoWho index maintenance
 				f. ServerEye Purge
@@ -278,7 +278,7 @@ BEGIN
 
 		BEGIN TRY
 			/*
-				We need to pass in valid AutoWho.CaptureTime.UTCCaptureTime values into the post-processor. We go back 45 minutes,
+				We need to pass in valid @@CHIRHO_SCHEMA@@.AutoWho_CaptureTime.UTCCaptureTime values into the post-processor. We go back 45 minutes,
 				though the various sub-procs inside the PostProcessor keep track of what they have already processed in that range.
 			*/
 			SET @lv__PostProcRawEndUTC = DATEADD(SECOND, -30, GETUTCDATE());		--we steer clear of the tail of the table where data is being inserted regularly.

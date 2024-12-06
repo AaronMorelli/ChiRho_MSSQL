@@ -76,11 +76,11 @@ BEGIN
 		StartTime/EndTime pair. (Pairs can overlap each other). In a pair, both the StartTime & EndTime must 
 		be in the past when the cache is first requested.
 
-		When a cache doesn't exist, the AutoWho.CaptureTimes table is first queried to determine whether 
+		When a cache doesn't exist, the @@CHIRHO_SCHEMA@@.AutoWho_CaptureTimes table is first queried to determine whether 
 		there is any AutoWho capture data with "CaptureSummaryPopulated=0" for the time range specified by
 		the @st and @et parameters to this procedure. If so, this means that while
 		the various detail tables have data, the CaptureSummary table hasn't yet been populated for those
-		capture times. Thus, this triggers a call to AutoWho.PopulateCaptureSummary to do the population
+		capture times. Thus, this triggers a call to @@CHIRHO_SCHEMA@@.AutoWho_PopulateCaptureSummary to do the population
 		for the time range of @st/@et. 
 
 		The actual ordinal cache is then created for @st/@et from the data in the CaptureSummary table. 
@@ -93,7 +93,7 @@ BEGIN
 		the very oldest record in the CaptureTimes table, we let the user know that there is no data.
 
 		NOTE: a late addition is the concept of the CollectionInitiatorID, which partitions the data based
-		on which part of ChiRho called AutoWho.Collector. If the standard background trace (e.g. AutoWho.Executor)
+		on which part of ChiRho called @@CHIRHO_SCHEMA@@.AutoWho_Collector. If the standard background trace (e.g. @@CHIRHO_SCHEMA@@.AutoWho_Executor)
 		calls the collector, the CollectionInitiatorID is 255. If collection occurs as part of a user manually
 		using sp_XR_SessionViewer, the ID is 1. (And for sp_XR_QueryProgress, the ID is 2). 
 		This division by initiator allows functionality like one-off traces that can then be reviewed
@@ -195,9 +195,9 @@ BEGIN
 				IF @ut IN (N'sp_XR_SessionViewer', N'sp_XR_QueryProgress')
 				BEGIN
 					--If the cache does not exist yet, then we need to create it, of course.
-					-- Technically, we could do this from the AutoWho.CaptureTimes table directly,
-					-- which just holds a list of all SPIDCaptureTimes that have occurred for the AutoWho.Collector procedure.
-					-- However, we want to ensure that the AutoWho.CaptureSummary table is populated for the 
+					-- Technically, we could do this from the @@CHIRHO_SCHEMA@@.AutoWho_CaptureTimes table directly,
+					-- which just holds a list of all SPIDCaptureTimes that have occurred for the @@CHIRHO_SCHEMA@@.AutoWho_Collector procedure.
+					-- However, we want to ensure that the @@CHIRHO_SCHEMA@@.AutoWho_CaptureSummary table is populated for the 
 					-- range we have been given, because as the user iterates through the AutoWho data in
 					-- the order specified in their CaptureOrdinalCache, some of the fields in the 
 					-- Capture Summary table will be useful to help the Auto Who viewer procedure formulate
@@ -234,7 +234,7 @@ BEGIN
 						END
 					END
 
-					--Ok, the AutoWho.CaptureSummary table now has entries for all of the capture times that occurred
+					--Ok, the @@CHIRHO_SCHEMA@@.AutoWho_CaptureSummary table now has entries for all of the capture times that occurred
 					-- between @st and @et. Now, build our cache
 					SET @codeloc = 'CapOrdCache1';
 					INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_CaptureOrdinalCache (
