@@ -19,40 +19,31 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR_trgDEL_CoreXR_Version.sql
+	FILE NAME: AutoWho_trgDEL_AutoWhoOptions.sql
 
-	TRIGGER NAME: CoreXR_trgDEL_CoreXR_Version
+	TRIGGER NAME: AutoWho_trgDEL_AutoWhoOptions
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: Maintains the CoreXR_Version_History table
+	PURPOSE: Prevents deletion of the option row in AutoWho_Options
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TRIGGER @@CHIRHO_SCHEMA@@.CoreXR_trgDEL_CoreXR_Version ON @@CHIRHO_SCHEMA@@.CoreXR_Version
+CREATE TRIGGER @@CHIRHO_SCHEMA@@.AutoWho_trgDEL_AutoWhoOptions ON @@CHIRHO_SCHEMA@@.AutoWho_Options
 
 FOR DELETE
 AS 	BEGIN
 
-INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Version_History 
-([Version], 
-EffectiveDate, 
-EffectiveDateUTC,
-HistoryInsertDate, 
-HistoryInsertDateUTC,
-TriggerAction)
-SELECT 
-Version, 
-EffectiveDate, 
-EffectiveDateUTC,
-GETDATE(),
-GETUTCDATE(),
-'Delete'
-FROM deleted
+--We don't allow deletes.
+RAISERROR('Deletes on the Option table are forbidden. To reset the options to defaults, call the AutoWho_ResetOptions procedure.',10,1);
+ROLLBACK TRANSACTION;
+
+RETURN;
+
 END
 GO

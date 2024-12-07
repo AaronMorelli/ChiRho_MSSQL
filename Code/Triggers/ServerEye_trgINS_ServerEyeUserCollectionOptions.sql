@@ -19,40 +19,47 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR_trgDEL_CoreXR_Version.sql
+	FILE NAME: ServerEye_trgINS_ServerEyeUserCollectionOptions.sql
 
-	TRIGGER NAME: CoreXR_trgDEL_CoreXR_Version
+	TRIGGER NAME: ServerEye_trgINS_ServerEyeUserCollectionOptions
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: Maintains the CoreXR_Version_History table
+	PURPOSE: Copies data inserted into the UserCollectionOptions table into the history table.
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TRIGGER @@CHIRHO_SCHEMA@@.CoreXR_trgDEL_CoreXR_Version ON @@CHIRHO_SCHEMA@@.CoreXR_Version
+CREATE TRIGGER @@CHIRHO_SCHEMA@@.ServerEye_trgINS_ServerEyeUserCollectionOptions ON @@CHIRHO_SCHEMA@@.ServerEye_UserCollectionOptions
 
-FOR DELETE
+FOR INSERT
 AS 	BEGIN
 
-INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Version_History 
-([Version], 
-EffectiveDate, 
-EffectiveDateUTC,
-HistoryInsertDate, 
-HistoryInsertDateUTC,
-TriggerAction)
+INSERT INTO @@CHIRHO_SCHEMA@@.ServerEye_UserCollectionOptions_History(
+	[HistoryInsertDate],
+	[HistoryInsertDateUTC],
+	[TriggerAction],
+	[LastModifiedUser],
+	[OptionSet],
+
+	[IncludeDBs],
+	[ExcludeDBs],
+	[DebugSpeed]
+)
 SELECT 
-Version, 
-EffectiveDate, 
-EffectiveDateUTC,
-GETDATE(),
-GETUTCDATE(),
-'Delete'
-FROM deleted
+	GETDATE(),
+	GETUTCDATE(),
+	'Insert',
+	SUSER_SNAME(),
+	[OptionSet],
+	[IncludeDBs],
+	[ExcludeDBs],
+	[DebugSpeed]
+FROM inserted
+;
 END
 GO

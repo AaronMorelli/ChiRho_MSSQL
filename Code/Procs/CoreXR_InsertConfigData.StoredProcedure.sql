@@ -422,7 +422,7 @@ BEGIN
 
 	INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_CollectionInitiators 
 	(CollectionInitiatorID, CollectionInitiator)
-	SELECT 255, N'AutoWho.Executor' UNION ALL		--making the default trace the high key reduces page splits
+	SELECT 255, N'@@CHIRHO_SCHEMA@@.AutoWho_Executor' UNION ALL		--making the default trace the high key reduces page splits
 	SELECT 254, N'ServerEye_Executor' UNION ALL		-- since the default/automated trace will generate collection data
 	SELECT 1,   N'sp_XR_SessionViewer' UNION ALL	-- at a *much* higher rate than the sp_XR* procs
 	SELECT 2,   N'sp_XR_QueryProgress';

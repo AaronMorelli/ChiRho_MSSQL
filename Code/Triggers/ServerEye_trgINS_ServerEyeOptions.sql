@@ -19,40 +19,40 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: CoreXR_trgDEL_CoreXR_Version.sql
+	FILE NAME: ServerEye_trgINS_ServerEyeOptions.sql
 
-	TRIGGER NAME: CoreXR_trgDEL_CoreXR_Version
+	TRIGGER NAME: ServerEye_trgINS_ServerEyeOptions
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: Maintains the CoreXR_Version_History table
+	PURPOSE: Copies data inserted into the Options table into the history table.
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-CREATE TRIGGER @@CHIRHO_SCHEMA@@.CoreXR_trgDEL_CoreXR_Version ON @@CHIRHO_SCHEMA@@.CoreXR_Version
+CREATE TRIGGER @@CHIRHO_SCHEMA@@.ServerEye_trgINS_ServerEyeOptions ON @@CHIRHO_SCHEMA@@.ServerEye_Options
 
-FOR DELETE
+FOR INSERT
 AS 	BEGIN
 
-INSERT INTO @@CHIRHO_SCHEMA@@.CoreXR_Version_History 
-([Version], 
-EffectiveDate, 
-EffectiveDateUTC,
-HistoryInsertDate, 
+INSERT INTO @@CHIRHO_SCHEMA@@.ServerEye_Options_History
+(
+RowID, ServerEyeEnabled, BeginTime, EndTime, BeginEndIsUTC, IntervalLength, IncludeDBs, ExcludeDBs, Retention_Days, DebugSpeed, PurgeUnextractedData,
+HistoryInsertDate,
 HistoryInsertDateUTC,
-TriggerAction)
+TriggerAction,
+LastModifiedUser)
 SELECT 
-Version, 
-EffectiveDate, 
-EffectiveDateUTC,
+RowID, ServerEyeEnabled, BeginTime, EndTime, BeginEndIsUTC, IntervalLength, IncludeDBs, ExcludeDBs, Retention_Days, DebugSpeed, PurgeUnextractedData,
 GETDATE(),
 GETUTCDATE(),
-'Delete'
-FROM deleted
+'Insert',
+SUSER_SNAME()
+FROM inserted
+
 END
 GO

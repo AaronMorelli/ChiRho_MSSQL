@@ -29,7 +29,7 @@
 					sqlcrossjoin.wordpress.com
 
 	PURPOSE: Holds a complete list of wait types from sys.dm_os_waiting_tasks.
-	This is different from AutoWho.DimWaitType which only holds waits actually
+	This is different from @@CHIRHO_SCHEMA@@.AutoWho_DimWaitType which only holds waits actually
 	observed by the AutoWho.Collector proc. The focus of the AutoWho table is on
 	staying as small as possible for speed. ServerEye runs less frequently and
 	so a larger table is fine.

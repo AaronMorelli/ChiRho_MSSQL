@@ -176,7 +176,7 @@ BEGIN
 			1. Check whether the AutoWho and ServerEye jobs are running, and start, if appropriate.
 
 			2. After we begin (or not) each job, we run supporting procs for each:
-				a. @@CHIRHO_SCHEMA@@.AutoWho_UpdateStoreLastTouched
+				a. @@CHIRHO_SCHEMA@@.@@CHIRHO_SCHEMA@@.AutoWho_UpdateStoreLastTouched
 				b. TODO: ServerEye_UpdateStoreLastTouche	<-- this proc does not exist yet, but likely will at some point
 				c. @@CHIRHO_SCHEMA@@.AutoWho_PostProcessor
 				d. AutoWho Purge
@@ -268,7 +268,7 @@ BEGIN
 
 		BEGIN TRY
 			SET @lv__ProcRC = 0;
-			EXEC @lv__ProcRC = @@CHIRHO_SCHEMA@@.AutoWho_UpdateStoreLastTouched;
+			EXEC @lv__ProcRC = @@CHIRHO_SCHEMA@@.@@CHIRHO_SCHEMA@@.AutoWho_UpdateStoreLastTouched;
 		END TRY
 		BEGIN CATCH
 			--inside the loop, we swallow the error and just log it
