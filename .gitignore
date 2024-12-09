@@ -2,6 +2,8 @@ InstallationLogs/*.log
 
 InstallationLogs/*.txt
 
+InstallationArtifacts/*
+
 InstallerScripts/TempDB_Install/*.sql
 
 master/*.sql
