@@ -347,7 +347,7 @@ BEGIN
 	END	--IF @camrate = 0
 
 
-	--INSERT INTO AutoWho.[Log]
+	--INSERT INTO @@CHIRHO_SCHEMA@@.AutoWho_Log
 	--(LogDT, TraceID, ErrorCode, LocationTag, LogMessage)
 	--SELECT SYSDATETIME(),  NULL, 0, N'UserTrc Start', N'Starting AutoWho collection for user on spid ' + CONVERT(NVARCHAR(20),@@SPID) + N'.';
 

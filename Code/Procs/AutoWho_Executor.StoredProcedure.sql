@@ -71,10 +71,10 @@ BEGIN
 
 			a. If StartTime is < current time and EndTime is > current time, the trace should be running.
 				The proc aborts if the trace shouldn't be running. In practice, this won't happen because
-				the "sqlcrosstools Master" job is responsible for starting the Executor proc (via a SQL Agent job that
-				is otherwise disable + no schedule) and it checks the Start/End time as well.
+				the ChiRho master job is responsible for starting the Executor proc (via a SQL Agent job that
+				is otherwise disabled + no schedule) and it checks the Start/End time as well.
 
-		5. Parse the DB/SPID Inclusion/Exclusion option strings into a filter table variable
+		5. Parse the DB/SPID Inclusion/Exclusion option strings into a filter table
 
 		6. Determine whether there are any long-running SPIDs that we don't want to interfere with the Collector's
 			threshold-based logic for obtaining expensive stuff like query plans. If there are, populate them into
@@ -84,9 +84,9 @@ BEGIN
 
 		8. Check current time against the End time of the trace and ensure that our trace will run >= 60 seconds
 
-		9. creates a "CoreXR" trace, which at this point is just an entry in a table. 
+		9. Create a "CoreXR" trace, which at this point is just an entry in a table. 
 		
-		10. Obtains the SQL Server startup time (used in some SPID duration calculations in the collector for spids that have start times like 1900-01-01 and such)
+		10. Obtain the SQL Server startup time (used in some SPID duration calculations in the collector for spids that have start times like 1900-01-01 and such)
 
 		11. Determines when the last time the Store tables had their "LastTouchedBy" field updated, via the @@CHIRHO_SCHEMA@@.AutoWho_Log table. 
 			Then, we call the @@CHIRHO_SCHEMA@@.AutoWho_UpdateStoreLastTouched proc to get the Stores fully up-to-date before we start the collector.
@@ -112,16 +112,16 @@ BEGIN
 
 			e. If the collector took > 30000 ms, run the "lightweight collector" just so we have some data on what might be bogging things down.
 
-			f. Evaluate the # of SPIDs capture the last 6 runs to see whether we should recompile the Collector procedure.
-				(Some query plans in the collector are more sensitive to large changes in the # of spids collected. 
+			f. Evaluate the # of SPIDs captured the last 6 runs to see whether we should recompile the Collector procedure.
+				(Some query plans in the collector are more sensitive to large changes in the # of spids collected) 
 
-			g. Every @opt__ThresholdFilterRefresh, empty the @@CHIRHO_SCHEMA@@.AutoWho_ThresholdFilterSpids table and re-calculate.
+			g. Every @opt__ThresholdFilterRefresh times through the loop, empty the @@CHIRHO_SCHEMA@@.AutoWho_ThresholdFilterSpids table and re-calculate.
 				We do this because those spids may have stopped & re-started, but under a different spid #.
 				Doing this in a high-frequency way would be expensive, but in a low-frequency way would put us at risk
 				for not collecting important data for SPIDs that are unrelated to the "running all day threshold-ignore" stuff.
 
 			h. If an abort was signalled (either b/c of 10 exceptions or b/c a human requested the trace stop), we set the
-				@lv__EarlyAbort variable so that the loop won't re-execute.
+				@lv__EarlyAbort variable so that the loop will not re-execute.
 
 			i. If it has been 10 minutes since we last called @@CHIRHO_SCHEMA@@.AutoWho_UpdateStoreLastTouched, do that now.
 
@@ -149,13 +149,17 @@ BEGIN TRY
 	DECLARE @lv__SQLVersion NVARCHAR(10);
 	SELECT @lv__SQLVersion = (
 	SELECT CASE
-			WHEN t.col1 LIKE N'8%' THEN N'2000'
-			WHEN t.col1 LIKE N'9%' THEN N'2005'
+			WHEN t.col1 LIKE N'17%' THEN N'2025'
+			WHEN t.col1 LIKE N'16%' THEN N'2022'
+			WHEN t.col1 LIKE N'15%' THEN N'2019'
+			WHEN t.col1 LIKE N'14%' THEN N'2017'
+			WHEN t.col1 LIKE N'13%' THEN N'2016'
+			WHEN t.col1 LIKE N'12%' THEN N'2014'
+			WHEN t.col1 LIKE N'11%' THEN N'2012'
 			WHEN t.col1 LIKE N'10.5%' THEN N'2008R2'
 			WHEN t.col1 LIKE N'10%' THEN N'2008'
-			WHEN t.col1 LIKE N'11%' THEN N'2012'
-			WHEN t.col1 LIKE N'12%' THEN N'2014'
-			WHEN t.col1 LIKE N'13%' THEN N'2016'
+			WHEN t.col1 LIKE N'9%' THEN N'2005'
+			WHEN t.col1 LIKE N'8%' THEN N'2000'
 		END AS val1
 	FROM (SELECT CONVERT(SYSNAME, SERVERPROPERTY(N'ProductVersion')) AS col1) AS t);
 
@@ -260,7 +264,7 @@ BEGIN TRY
 
 	--If we have an N'AllDay' AbortTrace flag entry for this day, then exit the procedure
 	--Note that this logic should NOT be based on UTC time.
-	IF EXISTS (SELECT * FROM AutoWho.SignalTable WITH (ROWLOCK) 
+	IF EXISTS (SELECT * FROM @@CHIRHO_SCHEMA@@.AutoWho_SignalTable WITH (ROWLOCK) 
 				WHERE LOWER(SignalName) = N'aborttrace' 
 				AND LOWER(SignalValue) = N'allday'
 				AND DATEDIFF(DAY, InsertTime, GETDATE()) = 0 )
@@ -343,18 +347,17 @@ BEGIN TRY
 		@opt__SaveBadDims						= [SaveBadDims]
 	FROM @@CHIRHO_SCHEMA@@.AutoWho_Options o
 
-	--Parse the DB include/exclude filter options (comma-delimited) into the user-typed table variable
-	DECLARE @FilterTVP AS CoreXRFiltersType;
+	--Parse the DB include/exclude filter options (comma-delimited) into the collection filter table
 	/*
-	CREATE TYPE CoreXRFiltersType AS TABLE 
-	(
-		FilterType TINYINT NOT NULL, 
-			--0 DB inclusion
-			--1 DB exclusion
-			--128 threshold filtering (spids that shouldn't be counted against the various thresholds that trigger auxiliary data collection)
-			--down the road, more to come (TODO: maybe filter by logins down the road?)
-		FilterID INT NOT NULL, 
-		FilterName NVARCHAR(255)
+	CREATE TABLE @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters (
+		[CollectionInitiatorID]	[tinyint] NOT NULL,
+		[FilterType] [tinyint] NOT NULL,
+				--0 DB inclusion
+				--1 DB exclusion
+				--128 threshold filtering (spids that shouldn't be counted against the various thresholds that trigger auxiliary data collection)
+				--down the road, more to come (TODO: maybe filter by logins down the road?)
+		[FilterID] [int] NOT NULL,
+		[FilterName] [nvarchar](255) NULL
 	)
 	*/
 
@@ -365,8 +368,8 @@ BEGIN TRY
 	ELSE
 	BEGIN
 		BEGIN TRY 
-			INSERT INTO @FilterTVP (FilterType, FilterID, FilterName)
-				SELECT 0, d.database_id, d.name
+			INSERT INTO @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters (CollectionInitiatorID, FilterType, FilterID, FilterName)
+				SELECT DISTINCT 255, 0, d.database_id, d.name
 				FROM (SELECT [dbnames] = LTRIM(RTRIM(Split.a.value(N'.', 'NVARCHAR(512)')))
 					FROM (SELECT CAST(N'<M>' + REPLACE( @opt__IncludeDBs,  N',' , N'</M><M>') + N'</M>' AS XML) AS dblist) xmlparse
 					CROSS APPLY dblist.nodes(N'/M') Split(a)
@@ -402,8 +405,8 @@ BEGIN TRY
 	IF ISNULL(@opt__ExcludeDBs, N'') <> N''
 	BEGIN
 		BEGIN TRY 
-			INSERT INTO @FilterTVP (FilterType, FilterID, FilterName)
-				SELECT 1, d.database_id, d.name
+			INSERT INTO @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters (CollectionInitiatorID, FilterType, FilterID, FilterName)
+				SELECT DISTINCT 255, 1, d.database_id, d.name
 				FROM (SELECT [dbnames] = LTRIM(RTRIM(Split.a.value(N'.', 'NVARCHAR(512)')))
 					FROM (SELECT CAST(N'<M>' + REPLACE( @opt__ExcludeDBs,  N',' , N'</M><M>') + N'</M>' AS XML) AS dblist) xmlparse
 					CROSS APPLY dblist.nodes(N'/M') Split(a)
@@ -429,20 +432,27 @@ BEGIN TRY
 	--The AutoWho_Collector proc contains conditional logic for some of the auxiliary data, that only gets executed
 	-- if there are SPIDs that meet various "thresholds". (such as long duration, long transaction, etc)
 	-- We want those SPIDs to be collected by the core set of data (e.g. the SessionsAndRequests table) but not 
-	-- trigger the auxiliary capture. For example, the Sentinel DMV monitor job runs all day, and thus would 
-	-- ALWAYS trigger the auxiliary logic for a "long-running spid" even though we really don't care about the Sentinel
-	-- spid very often.
+	-- trigger the auxiliary capture. For example, a standard enterprise database monitoring tool would
+	-- ALWAYS trigger the auxiliary logic for a "long-running spid" even though we really don't care about those
+	-- spids very often.
 
 	TRUNCATE TABLE @@CHIRHO_SCHEMA@@.AutoWho_ThresholdFilterSpids;
 	EXEC @@CHIRHO_SCHEMA@@.AutoWho_ObtainSessionsForThresholdIgnore;
 
-	INSERT INTO @FilterTVP (FilterType, FilterID)
-	SELECT DISTINCT 128, f.ThresholdFilterSpid
+	INSERT INTO @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters (CollectionInitiatorID, FilterType, FilterID)
+	SELECT DISTINCT 255, 128, f.ThresholdFilterSpid
 	FROM @@CHIRHO_SCHEMA@@.AutoWho_ThresholdFilterSpids f; 
 
 	SET @lv__LastThresholdFilterTimeUTC = GETUTCDATE();
 
-	IF EXISTS (SELECT * FROM @FilterTVP t1 INNER JOIN @FilterTVP t2 ON t1.FilterID = t2.FilterID AND t1.FilterType = 0 AND t2.FilterType = 1)
+	IF EXISTS (SELECT * 
+		FROM @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters t1 
+			INNER JOIN @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters t2 
+				ON t1.FilterID = t2.FilterID 
+				AND t1.FilterType = 0 
+				AND t2.FilterType = 1
+		WHERE t1.CollectionInitiatorID = 255
+		AND t2.CollectionInitiatorID = 255)
 	BEGIN
 		SET @ErrorMessage = N'One or more DB names are present in both the IncludeDBs option and ExcludeDBs option. This is not allowed.';
 
@@ -506,6 +516,8 @@ BEGIN TRY
 
 	IF @opt__ResolvePageLatches = N'Y' OR @opt__Enable8666 = N'Y'
 	BEGIN
+		--TODO: where is the code to turn of TF 3604? Was this moved to a separate section of the codebase?
+
 		IF @opt__Enable8666 = N'Y'
 		BEGIN
 			BEGIN TRY
@@ -551,7 +563,7 @@ BEGIN TRY
 					@IncludeIdleWithTran = @opt__IncludeIdleWithTran,
 					@IncludeIdleWithoutTran = @opt__IncludeIdleWithoutTran,
 					@DurationFilter = @opt__DurationFilter, 
-					@FilterTable = @FilterTVP, 
+					--@FilterTable = @FilterTVP,   --changed to a permanent table to support TempDB-only installs (cannot assume we will be able to create a custom type in TempDB)
 					@DBInclusionsExist = @lv__DBInclusionsExist, 
 					@HighTempDBThreshold = @opt__HighTempDBThreshold, 
 					@CollectSystemSpids = @opt__CollectSystemSpids, 
@@ -586,7 +598,7 @@ BEGIN TRY
 					@IncludeIdleWithTran = @opt__IncludeIdleWithTran,
 					@IncludeIdleWithoutTran = @opt__IncludeIdleWithoutTran,
 					@DurationFilter = @opt__DurationFilter, 
-					@FilterTable = @FilterTVP, 
+					--@FilterTable = @FilterTVP,   --changed to a permanent table to support TempDB-only installs (cannot assume we will be able to create a custom type in TempDB)
 					@DBInclusionsExist = @lv__DBInclusionsExist, 
 					@HighTempDBThreshold = @opt__HighTempDBThreshold, 
 					@CollectSystemSpids = @opt__CollectSystemSpids, 
@@ -642,7 +654,7 @@ BEGIN TRY
 		-- about the system in a more lightweight way.
 		SET @lv__AutoWhoCallCompleteTimeUTC = GETUTCDATE();
 
-		--If this run was successful, let's find the most-recent successful run 
+		--If this run was successful, lets find the most-recent successful run 
 		-- (Useful for queries that consume this data and need to somehow connect a previous run with its successive run.)
 		IF @lv__SuccessiveExceptions = 0
 		BEGIN
@@ -737,13 +749,14 @@ BEGIN TRY
 		--Every @opt__ThresholdFilterRefresh minutes, we need to recalculate our list of SPIDs to omit from threshold calculations
 		IF DATEDIFF(MINUTE, @lv__LastThresholdFilterTimeUTC, GETUTCDATE()) >= @opt__ThresholdFilterRefresh
 		BEGIN
-			DELETE FROM @FilterTVP WHERE FilterType = 128;
+		 	DELETE FROM @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters WHERE CollectionInitiatorID = 255 AND FilterType = 128;
+
+			INSERT INTO @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters (CollectionInitiatorID, FilterType, FilterID)
+			SELECT DISTINCT 255, 128, f.ThresholdFilterSpid
+			FROM @@CHIRHO_SCHEMA@@.AutoWho_ThresholdFilterSpids f; 
+
 			TRUNCATE TABLE @@CHIRHO_SCHEMA@@.AutoWho_ThresholdFilterSpids;
 			EXEC @@CHIRHO_SCHEMA@@.AutoWho_ObtainSessionsForThresholdIgnore;
-
-			INSERT INTO @FilterTVP (FilterType, FilterID)
-			SELECT DISTINCT 128, f.ThresholdFilterSpid
-			FROM @@CHIRHO_SCHEMA@@.AutoWho_ThresholdFilterSpids f;
 
 			SET @lv__LastThresholdFilterTimeUTC = GETUTCDATE();
 		END
@@ -837,7 +850,7 @@ BEGIN TRY
 		SET @ErrorMessage = 'Exiting wrapper procedure due to manual abort, type: ' + @lv__EarlyAbort;
 		EXEC @@CHIRHO_SCHEMA@@.AutoWho_LogEvent @ProcID=@@PROCID, @EventCode=@lv__ThisRC, @TraceID=@lv__TraceID, @Location='Manual abort exit', @Message=@ErrorMessage;
 
-		--We don't need to abort this trace as it should have been aborted already
+		--We do not need to abort this trace as it should have been aborted already
 	END
 	ELSE 
 	BEGIN

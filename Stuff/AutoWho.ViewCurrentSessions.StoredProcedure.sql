@@ -44,7 +44,7 @@ CREATE PROCEDURE [AutoWho].[ViewCurrentSessions]
 
 To Execute
 ------------------------
-Shouldn't be called by programs or used regularly. Only call when debugging.
+Should not be called by programs or used regularly. Only call when debugging.
 
 
 */
@@ -189,7 +189,7 @@ BEGIN
 		FilterType TINYINT NOT NULL, 
 			--0 DB inclusion
 			--1 DB exclusion
-			--128 threshold filtering (spids that shouldn't be counted against the various thresholds that trigger auxiliary data collection)
+			--128 threshold filtering (spids that should not be counted against the various thresholds that trigger auxiliary data collection)
 			--down the road, more to come (TODO: maybe filter by logins down the road?)
 		FilterID INT NOT NULL, 
 		FilterName NVARCHAR(255)
@@ -199,7 +199,7 @@ BEGIN
 	DECLARE @SessionFilters AS CoreXRFiltersType;
 		-- we put session inclusion (code = 2) and exclusion (code = 3) into this table,
 		-- and then put the exclusion rows into the above filter table as threshold filters
-		-- so they don't trigger longer-running Collector statements needlessly.
+		-- so they do not trigger longer-running Collector statements needlessly.
 
 	--initial values/enum population:
 

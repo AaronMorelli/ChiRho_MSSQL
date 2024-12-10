@@ -298,7 +298,7 @@ BEGIN TRY
 																	--		it is NOT block-relevant, and its running duration is >= @QueryPlanThreshold
 																	--		it is a threshold-ignore spid (and not block-relevant) and it is NOT waiting with the WAITFOR type
 
-		@thresh__GhostCleanupIsRunning					TINYINT,	-- I've seen some terrible runtimes for DBCC PAGE when GHOST CLEANUP is running. To work around this, we check
+		@thresh__GhostCleanupIsRunning					TINYINT,	-- I have seen some terrible runtimes for DBCC PAGE when GHOST CLEANUP is running. To work around this, we check
 																	--  for whether Ghost Cleanup is running by pre-defining the DimCommand value (=2) and then checking for its existence
 																	--  in SAR. If we do see a spid running this command, then we know to avoid any page latch resolution logic.
 
@@ -323,7 +323,7 @@ BEGIN TRY
 		@NewDims__NetAddress							TINYINT,	-- tables are populated as new values come in. Thus, the #sar records try to match up their varchar fields to existing
 		@NewDims__SessionAttribute						TINYINT,	-- dimension records -- if there is a match, then only the surrogate value is stored, but if there is not, then the varchar
 		@NewDims__WaitType_sar							TINYINT,	-- values are stored. During our scan of #sar (and also #taw for wait types), we check to see if there are any string values
-		@NewDims__WaitType_taw							TINYINT		-- that we haven't put into dimension records yet, and if so, we execute certain logic to do that.
+		@NewDims__WaitType_taw							TINYINT		-- that we have not put into dimension records yet, and if so, we execute certain logic to do that.
 		;
 
 	SET @errorloc = N'Variable Initialize';
@@ -341,7 +341,7 @@ BEGIN TRY
 									/ 8192;		--and then to pages
 	
 	--For the "waitspecial" enumeration, the numeric values do not necessarily have any comparison/ordering meaning among each other.
-	-- Thus, the fact that @enum__waitspecial__pgblocked = 7 and this is larger than 5 (@enum__waitspecial__lck) isn't significant.
+	-- Thus, the fact that @enum__waitspecial__pgblocked = 7 and this is larger than 5 (@enum__waitspecial__lck) is not significant.
 	SET @enum__waitspecial__none =			CONVERT(TINYINT, 0);
 	SET @enum__waitspecial__lck =			CONVERT(TINYINT, 5);
 	SET @enum__waitspecial__pgblocked =		CONVERT(TINYINT, 7);
@@ -359,7 +359,7 @@ BEGIN TRY
 																		--	these can be any type of latch (pg, pgio, a memory object, etc); 
 	SET @enum__waitorder_pglatch =			CONVERT(TINYINT, 15);		-- Page and PageIO latches are fairly common, and in parallel plans we want them
 																		-- to sort higher than other latches, e.g. the fairly common ACCESS_METHODS_DATASET_PARENT
-	SET @enum__waitorder__cxp =				CONVERT(TINYINT, 200);		--d. parallel sorts near the end, since a parallel wait doesn't mean the spid is completely halted
+	SET @enum__waitorder__cxp =				CONVERT(TINYINT, 200);		--d. parallel sorts near the end, since a parallel wait does not mean the spid is completely halted
 	SET @enum__waitorder__other =			CONVERT(TINYINT, 20);		--e. catch-all bucket
 
 	SET @errorloc = N'TempTable declare';
@@ -425,7 +425,7 @@ BEGIN TRY
 
 	/* Moving page latch resolution logic to the Every 15 Minute Master job
 	CREATE TABLE #t__dbccpage (
-		[ParentObject]				[varchar](100)		NULL,		--canot guarantee that DBCC PAGE will always return non-null values, so cols allow nulls
+		[ParentObject]				[varchar](100)		NULL,		--cannot guarantee that DBCC PAGE will always return non-null values, so cols allow nulls
 		[Objectcol]					[varchar](100)		NULL,
 		[Fieldcol]					[varchar](100)		NULL,
 		[Valuecol]					[varchar](100)		NULL
@@ -1788,8 +1788,8 @@ There are a number of points worth noting re: the below scoping queries:
 				) myDerivedTable
 					ON blah blah
 
-		The problem with this approach is that the "UPDATE" portion of the statement can't "see" the #SpidMon_sessions table reference. 
-		It's "line of sight" to that reference has been blocked, as it were. Thus, we would have to join in #SpidMon_Sessions AGAIN 
+		The problem with this approach is that the "UPDATE" portion of the statement cannot "see" the #SpidMon_sessions table reference. 
+		The "line of sight" to that reference has been blocked, as it were. Thus, we would have to join in #SpidMon_Sessions AGAIN 
 		in order for the UPDATE portion to be able to "see" the table that it is updating. This means a second reference to #SpidMon_Sessions,
 		and thus an extra join, and thus a slower query.
 
@@ -1949,7 +1949,7 @@ There are a number of points worth noting re: the below scoping queries:
 
 	--We have just scoped (i.e. defined whether the spid will be kept or not) every spid that our initial capture query obtained.
 	-- However, there are 2 possible gaps here:
-	--		1. @IncludeIdleWithoutTran was set to N'N', so no idle-without-tran spids were captured, but an idle spid is blocking
+	--		1. @IncludeIdleWithoutTran was set to N, so no idle-without-tran spids were captured, but an idle spid is blocking
 	--			an active spid. As far as I know, this can only happen when an active spid is trying to execute a command that is
 	--			not compatible with a shared DB lock (i.e. the type of lock even idle spids have). Thus, it should be rare, typically
 	--			happening with major operations like detaching a DB, putting a DB in single-user mode, etc.

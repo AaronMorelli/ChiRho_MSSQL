@@ -28,6 +28,7 @@
 #
 #	PURPOSE: Takes the template DDL (that contains tokens like @@CHIRHO_SCHEMA@@) and creates a set of installation
 #       scripts based on the settings for Database Name, Schema Name, and the type of SQL Server being installed
+# .\generate_installation_artifacts.ps1 -InstanceType "blah" -DatabaseName "ChiRho" -DBExists "N" -SchemaName "dbo" -curScriptLocation "C:\aa\anots\ChiRho_MSSQL\"
 #####
 
 param ( 
@@ -44,19 +45,19 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-$target_script_file = $curScriptLocation + "InstallationArtifacts\01_CoreXR_and_AutoWho.sql"
+$target_script_file_01 = $curScriptLocation + "InstallationArtifacts\01_CoreXR_and_AutoWho.sql"
 
 # truncate the contents of our output files:
-Set-Content -Path $target_script_file -Value ""
+Set-Content -Path $target_script_file_01 -Value ""
 
 $source_folder_tables = $curScriptLocation + "Code\Tables\"
 
 $curScript = ""
 $curFileName = ""
 
+# Read all CoreXR files in, modify their contents accordingly, and append to the output script.
 try {
-    # TODO: I should add a Sort-Object here so that the files will be processed in the same order every time.
-    Get-ChildItem -Path $source_folder_tables -File | ForEach-Object {
+    Get-ChildItem -Path $source_folder_tables -File -Filter "CoreXR*" | Sort-Object Name | ForEach-Object {
         $curScript = $_.FullName
         $curFileName = $_.Name
 
@@ -66,7 +67,7 @@ try {
 
         # Our token replacement logic depends on whether we are installing into tempdb (global temp objects)
         # or into a regular database.
-        if ( $Database -eq "tempdb")  {
+        if ( $DatabaseName -eq "tempdb")  {
             # Note the extra "." character that is present in this replace, as opposed to the "else" case
             $new_file_content = $current_file_content -replace [regex]::Escape("@@CHIRHO_SCHEMA@@."), "##"
         }
@@ -75,7 +76,7 @@ try {
         }
 
         # Append the processed content to the output file
-        Add-Content -Path $target_script_file -Value $new_file_content
+        Add-Content -Path $target_script_file_01 -Value $new_file_content
 
         #In Windows 2012 R2, we are ending up in the SQLSERVER:\ prompt, when really we want to be in the file system provider. Doing a simple "CD" command gets us back there
         # CD $curScriptLocation

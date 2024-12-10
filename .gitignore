@@ -4,6 +4,8 @@ InstallationLogs/*.txt
 
 InstallationArtifacts/*
 
+!InstallationArtifacts/README.md
+
 InstallerScripts/TempDB_Install/*.sql
 
 master/*.sql

@@ -19,20 +19,21 @@
 
 	PROJECT DESCRIPTION: A T-SQL toolkit for troubleshooting performance and stability problems on SQL Server instances
 
-	FILE NAME: dbo.CoreXRFiltersType.UserDefinedTableType.sql
+	FILE NAME: AutoWho_CollectionFilters.Table.sql
 
-	TYPE NAME: dbo.CoreXRFiltersType
+	TABLE NAME: AutoWho_CollectionFilters
 
 	AUTHOR:			Aaron Morelli
 					aaronmorelli@zoho.com
 					@sqlcrossjoin
 					sqlcrossjoin.wordpress.com
 
-	PURPOSE: This table type is passed around as a parameter and typically
-	contains one or more types of filters (e.g. "session", or "database")
+	PURPOSE: Typically contains one or more types of filters (e.g. "session", or "database")
 	along with the filtering value(s).
+	NOTE: currently not planning to index this as this table should never have more than a few rows.
 */
-CREATE TYPE [dbo].[CoreXRFiltersType] AS TABLE(
+CREATE TABLE @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters (
+	[CollectionInitiatorID]	[tinyint] NOT NULL,
 	[FilterType] [tinyint] NOT NULL,
 	[FilterID] [int] NOT NULL,
 	[FilterName] [nvarchar](255) NULL

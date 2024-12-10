@@ -59,42 +59,30 @@ BEGIN
 		Sessions we want to identify:
 			Self (because even if the AutoWho.Options table has us including SELF, we still don't
 				want it to trigger the thresholds)
-			ServerEye's Executor/Collector
+			TODO: ServerEye's Executor/Collector
+				Note that I do not have any logic in this proc yet for this case!
 	*/
-	DECLARE @SPIDsToIB TABLE (SessionID INT, DatabaseID SMALLINT);
 	DECLARE @SPIDsToFilter TABLE (SessionID INT); 
 
+	INSERT INTO @SPIDsToFilter (SessionID)
+	SELECT @@SPID;
+
+	--For some spids, we may want to identify them based on their DBCC INPUTBUFFER.
+	DECLARE @SPIDsToIB TABLE (SessionID INT, DatabaseID SMALLINT);
 	DECLARE @IBResults TABLE (
 		EventType VARCHAR(100), 
 		[Parameters] INT, 
 		InputBuffer NVARCHAR(4000)
 	);
-	
-	INSERT INTO @SPIDsToFilter (SessionID)
-	SELECT @@SPID;
 
-	--Obtain the DMViewerCore "run all day" SPIDs
-	DECLARE @CurrentDBID INT, 
-		@BizTalkMsgBoxDBID INT;
-
-	SELECT @CurrentDBID = DB_ID();
-
-	SELECT @BizTalkMsgBoxDBID = d.database_id
-	FROM sys.databases d
-	WHERE d.name = 'BizTalkMsgBoxDb';
-
-	INSERT INTO @SPIDsToIB (SessionID, DatabaseID)
-	SELECT DISTINCT se.session_id, mds.dbid
-	FROM sys.dm_exec_sessions se
-		INNER JOIN master.dbo.sysprocesses mds
-			ON mds.spid = se.session_id
-	WHERE mds.ecid = 0
-	AND mds.dbid IN (@CurrentDBID, 
-					ISNULL(@BizTalkMsgBoxDBID,-1)		--need ISNULL in case Msgbox doesn't exist on this instance
-					)
-	AND EXISTS (SELECT * FROM sys.dm_exec_requests r		--make sure the session has an open request
-					WHERE r.session_id = se.session_id)
-	AND se.[program_name] like '%SQLAgent - TSQL JobStep%';
+	/*
+	--TODO: The @IBResults table and the logic below assist in obtaining DBCC INPUTBUFFER results
+	--for certain spids. The idea here is that first you write an INSERT statement (not shown here) into @SPIDsToIB
+	-- that looks at the open sessions on the instance and restricts them based on some criteria, e.g.
+	-- DBID of the SPID. This is more efficient than just running DBCC INPUTBUFFER on every spid, every time.
+	-- Then, for the smaller set of SPIDs that pass your initial logic, the below loop will obtain the input buffer
+	-- for each, and then additional filtering can determine whether it is a SPID that you really do want to ignore
+	--for certain collection thresholds.
 
 	DECLARE @tmpSPID INT, 
 			@tmpDBID SMALLINT,
@@ -121,34 +109,22 @@ BEGIN
 			--no-op
 		END CATCH
 
-		--debug:
-		--SELECT * FROM @IBResults;
-		IF @tmpDBID = @CurrentDBID
-		BEGIN
-			INSERT INTO @SPIDsToFilter (SessionID)
-			SELECT DISTINCT @tmpSPID
-			FROM @IBResults t
-			WHERE (
-				t.InputBuffer LIKE '%AeosDMVMonitoring%'
-				)
-			AND NOT EXISTS (SELECT * FROM @SPIDsToFilter t2
-							WHERE t2.SessionID = @tmpSPID);
-		END 
-		ELSE IF @tmpDBID = @BizTalkMsgBoxDBID
-		BEGIN
-			INSERT INTO @SPIDsToFilter (SessionID)
-			SELECT DISTINCT @tmpSPID
-			FROM @IBResults t
-			WHERE t.InputBuffer LIKE '%bts_ManageMessageRefCountLog%'
-			AND NOT EXISTS (SELECT * FROM @SPIDsToFilter t2
-							WHERE t2.SessionID = @tmpSPID);
-		END
+		INSERT INTO @SPIDsToFilter (SessionID)
+		SELECT DISTINCT @tmpSPID
+		FROM @IBResults t
+		WHERE (
+			t.InputBuffer LIKE '%some important text goes here%'
+			)
+		AND NOT EXISTS (SELECT * FROM @SPIDsToFilter t2
+						WHERE t2.SessionID = @tmpSPID);
+
 
 		FETCH iterateSPIDs INTO @tmpSPID, @tmpDBID;
 	END
 
 	CLOSE iterateSPIDs
 	DEALLOCATE iterateSPIDs;
+	*/
 
 	INSERT INTO @@CHIRHO_SCHEMA@@.AutoWho_ThresholdFilterSpids ([ThresholdFilterSpid])
 	SELECT DISTINCT t.SessionID
