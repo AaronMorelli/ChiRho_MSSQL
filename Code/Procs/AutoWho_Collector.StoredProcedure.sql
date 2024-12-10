@@ -64,7 +64,7 @@ To Execute
 	@IncludeIdleWithTran				NCHAR(1),		--Y/N
 	@IncludeIdleWithoutTran				NCHAR(1),		--Y/N
 	@DurationFilter						INT,			--unit=milliseconds, must be >= 0
-	@FilterTable						dbo.CoreXRFiltersType READONLY,
+	--@FilterTable						dbo.CoreXRFiltersType READONLY,   -- 2024-12-09: replaced with a permanent table to enable TempDB-only installs
 	@DBInclusionsExist					BIT,
 	@HighTempDBThreshold				INT,			--MB		if a SPID has used this much tempdb space, even if it has no 
 														--			trans open and @IncludeIdleWithoutTran=N'N', it is still included
@@ -1900,11 +1900,20 @@ There are a number of points worth noting re: the below scoping queries:
 			END
 		)
 	FROM
-		@FilterTable threshignore
+		(SELECT FilterID FROM @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters 
+			WHERE CollectionInitiatorID = @CollectionInitiatorID
+			AND FilterType = CONVERT(TINYINT, 128)  --threshold code
+			) threshignore
 		RIGHT OUTER hash JOIN
-			@FilterTable dxt	--1. 
+			(SELECT FilterID FROM @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters
+				WHERE CollectionInitiatorID = @CollectionInitiatorID
+				AND FilterType = CONVERT(TINYINT,1)	--exclusion code
+				) dxt --1. 
 			RIGHT OUTER hash JOIN
-				@FilterTable dint	--2. 
+				(SELECT FilterID FROM @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters
+					WHERE CollectionInitiatorID = 255
+					AND FilterType = CONVERT(TINYINT,0)	--inclusion code
+					) dint	--2. 
 				RIGHT OUTER hash JOIN 
 					(SELECT DISTINCT 
 						[blocker_session_id] = t.blocking_session_id
@@ -1931,11 +1940,8 @@ There are a number of points worth noting re: the below scoping queries:
 						ON s.sess__session_id = ListOfBlockers.blocker_session_id		--5. 
 
 					ON dint.FilterID = s.sess__database_id	--2. 
-					AND dint.FilterType = CONVERT(TINYINT,0)	--inclusion code
 				ON dxt.FilterID = s.sess__database_id		--1. 
-				AND dxt.FilterType = CONVERT(TINYINT,1)	--exclusion code
 			ON threshignore.FilterID = s.sess__session_id
-			AND threshignore.FilterType = CONVERT(TINYINT,128)	--threshold code
 	OPTION(FORCE ORDER, MAXDOP 1, KEEPFIXED PLAN);
 
 	IF @DebugSpeed = N'Y'
@@ -1955,7 +1961,7 @@ There are a number of points worth noting re: the below scoping queries:
 	--			happening with major operations like detaching a DB, putting a DB in single-user mode, etc.
 
 	--		2. An active batch is blocked by a spid that has been excluded due to filtering or exclusion rules. For example, this 
-	--			could happen if the blocker was executing in a context of a DB that is in the @FilterTable tabvar, or if the 
+	--			could happen if the blocker was executing in a context of a DB that is in the AutoWho_CollectionFilters table, or if the 
 	--			blocker had only been running its current query for a few seconds (i.e. < the @DurationFilter value).
 	-- In either case, we want to include the blocker
 
@@ -1966,14 +1972,16 @@ There are a number of points worth noting re: the below scoping queries:
 		SET calc__return_to_user = 99,		--code for "brought back in"
 			calc__threshold_ignore = CASE WHEN threshignore.FilterID IS NOT NULL THEN 1 ELSE 0 END
 	FROM 
-		@FilterTable threshignore
+		(SELECT FilterID FROM @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters 
+			WHERE CollectionInitiatorID = @CollectionInitiatorID
+			AND FilterType = CONVERT(TINYINT, 128)  --threshold code
+			) threshignore
 		RIGHT OUTER hash JOIN
 			#sessions_and_requests s1
 			INNER hash JOIN #sessions_and_requests s2
 				ON s1.sess__session_id = s2.calc__blocking_session_id
 				AND s2.calc__return_to_user > 0
 			ON threshignore.FilterID = s1.sess__session_id
-			AND threshignore.FilterType = CONVERT(TINYINT,128)
 	WHERE s1.calc__return_to_user <= 0
 	OPTION(MAXDOP 1, KEEPFIXED PLAN, FORCE ORDER);
 
@@ -2253,7 +2261,12 @@ There are a number of points worth noting re: the below scoping queries:
 				[calc__sysspid_isinteresting] = 0, 
 				[calc__threshold_ignore] = CASE WHEN threshignore.FilterID IS NOT NULL THEN CONVERT(BIT,1) ELSE CONVERT(BIT,0) END, 
 				[rqst__FKDimCommand] = 1		--all of these are by definition idle, and thus get the pre-defined "1" code.
-			FROM @FilterTable threshignore
+			FROM 
+				(SELECT FilterID FROM @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters 
+					WHERE CollectionInitiatorID = @CollectionInitiatorID
+					AND FilterType = CONVERT(TINYINT, 128)  --threshold code
+					) threshignore
+
 				RIGHT OUTER hash JOIN @@CHIRHO_SCHEMA@@.AutoWho_DimNetAddress dna
 				RIGHT OUTER hash JOIN @@CHIRHO_SCHEMA@@.AutoWho_DimConnectionAttribute dca
 				RIGHT OUTER hash JOIN @@CHIRHO_SCHEMA@@.AutoWho_DimSessionAttribute dsa
@@ -2327,7 +2340,6 @@ There are a number of points worth noting re: the below scoping queries:
 				AND dna.local_tcp_port = ISNULL(c.local_tcp_port,@lv__nullint)				--BOL: yes, is NULLABLE
 
 			ON threshignore.FilterID = s.session_id
-			AND threshignore.FilterType = CONVERT(TINYINT,128)
 		) withdims
 		OPTION(MAXDOP 1, KEEPFIXED PLAN, FORCE ORDER);
 
@@ -2416,9 +2428,10 @@ There are a number of points worth noting re: the below scoping queries:
 				EmptyDim__NetAddress = CASE WHEN sar.conn__FKDimNetAddress IS NULL THEN CONVERT(TINYINT,1) ELSE CONVERT(TINYINT,0) END,
 				EmptyDim__SessionAttribute = CASE WHEN sar.sess__FKDimSessionAttribute IS NULL THEN CONVERT(TINYINT,1) ELSE CONVERT(TINYINT,0) END,
 				EmptyDim__WaitType = CASE WHEN sar.rqst__FKDimWaitType IS NULL THEN CONVERT(TINYINT,1) ELSE CONVERT(TINYINT,0) END
-			FROM (SELECT f.FilterID
-				  FROM @FilterTable f
-				  WHERE f.FilterType = 128	--threshold filter type
+			FROM 
+				(SELECT FilterID FROM @@CHIRHO_SCHEMA@@.AutoWho_CollectionFilters 
+					WHERE CollectionInitiatorID = @CollectionInitiatorID
+					AND FilterType = CONVERT(TINYINT, 128)  --threshold code
 					) tfx
 				RIGHT OUTER hash JOIN #sessions_and_requests sar
 					ON sar.sess__session_id = tfx.FilterID

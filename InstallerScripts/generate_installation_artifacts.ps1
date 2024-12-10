@@ -51,11 +51,12 @@ $target_script_file_01 = $curScriptLocation + "InstallationArtifacts\01_CoreXR_a
 Set-Content -Path $target_script_file_01 -Value ""
 
 $source_folder_tables = $curScriptLocation + "Code\Tables\"
+$source_folder_procs = $curScriptLocation + "Code\Procs\"
 
 $curScript = ""
 $curFileName = ""
 
-# Read all CoreXR files in, modify their contents accordingly, and append to the output script.
+# Read all CoreXR table files in, modify their contents accordingly, and append to the output script.
 try {
     Get-ChildItem -Path $source_folder_tables -File -Filter "CoreXR*" | Sort-Object Name | ForEach-Object {
         $curScript = $_.FullName
@@ -91,6 +92,76 @@ catch [system.exception] {
 	break
 }  # end of Core Tables block
 
+try {
+    Get-ChildItem -Path $source_folder_tables -File -Filter "AutoWho*" | Sort-Object Name | ForEach-Object {
+        $curScript = $_.FullName
+        $curFileName = $_.Name
+
+        # Read the content of the file into a string variable
+        # $current_file_content = Get-Content -Path $_.FullName -Raw -Encoding Unicode
+        $current_file_content = Get-Content -Path $_.FullName -Raw
+
+        # Our token replacement logic depends on whether we are installing into tempdb (global temp objects)
+        # or into a regular database.
+        if ( $DatabaseName -eq "tempdb")  {
+            # Note the extra "." character that is present in this replace, as opposed to the "else" case
+            $new_file_content = $current_file_content -replace [regex]::Escape("@@CHIRHO_SCHEMA@@."), "##"
+        }
+        else {
+            $new_file_content = $current_file_content -replace [regex]::Escape("@@CHIRHO_SCHEMA@@"), $SchemaName
+        }
+
+        # Append the processed content to the output file
+        Add-Content -Path $target_script_file_01 -Value $new_file_content
+
+        #In Windows 2012 R2, we are ending up in the SQLSERVER:\ prompt, when really we want to be in the file system provider. Doing a simple "CD" command gets us back there
+        # CD $curScriptLocation
+    }
+}
+catch [system.exception] {
+	Write-Host "Error occurred when creating core tables, in file: " + $curScript -foregroundcolor red -backgroundcolor black
+	Write-Host "$_" -foregroundcolor red -backgroundcolor black
+    $curtime = Get-Date -format s
+	Write-Host "Aborting installation, abort time: " + $curtime -foregroundcolor red -backgroundcolor black
+    throw "Installation failed"
+	break
+}  # end of Core Tables block
+
+# Read all CoreXR proc files in, modify their contents accordingly, and append to the output script.
+try {
+    Get-ChildItem -Path $source_folder_procs -File -Filter "CoreXR*" | Sort-Object Name | ForEach-Object {
+        $curScript = $_.FullName
+        $curFileName = $_.Name
+
+        # Read the content of the file into a string variable
+        # $current_file_content = Get-Content -Path $_.FullName -Raw -Encoding Unicode
+        $current_file_content = Get-Content -Path $_.FullName -Raw
+
+        # Our token replacement logic depends on whether we are installing into tempdb (global temp objects)
+        # or into a regular database.
+        if ( $DatabaseName -eq "tempdb")  {
+            # Note the extra "." character that is present in this replace, as opposed to the "else" case
+            $new_file_content = $current_file_content -replace [regex]::Escape("@@CHIRHO_SCHEMA@@."), "##"
+        }
+        else {
+            $new_file_content = $current_file_content -replace [regex]::Escape("@@CHIRHO_SCHEMA@@"), $SchemaName
+        }
+
+        # Append the processed content to the output file
+        Add-Content -Path $target_script_file_01 -Value $new_file_content
+
+        #In Windows 2012 R2, we are ending up in the SQLSERVER:\ prompt, when really we want to be in the file system provider. Doing a simple "CD" command gets us back there
+        # CD $curScriptLocation
+    }
+}
+catch [system.exception] {
+	Write-Host "Error occurred when creating core tables, in file: " + $curScript -foregroundcolor red -backgroundcolor black
+	Write-Host "$_" -foregroundcolor red -backgroundcolor black
+    $curtime = Get-Date -format s
+	Write-Host "Aborting installation, abort time: " + $curtime -foregroundcolor red -backgroundcolor black
+    throw "Installation failed"
+	break
+}  # end of Core Tables block
 
 # TODO: For the tempdb case, we may want the final step of an artifact file to actually to start a trace.
 # It would not be the installer that runs the artifact file, but rather a human that opens that .sql file

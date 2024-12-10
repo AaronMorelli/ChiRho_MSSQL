@@ -34,52 +34,119 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
+
 CREATE TABLE @@CHIRHO_SCHEMA@@.AutoWho_Options(
 	[RowID] [int] NOT NULL CONSTRAINT [DF_Options_RowID]  DEFAULT ((1)),
+		--Enforces just 1 row in the table
 	[AutoWhoEnabled] [nchar](1) NOT NULL CONSTRAINT [DF_Options_AutoWhoEnabled]  DEFAULT (N'Y'),
+		--Master on/off switch for the AutoWho tracing portion of ChiRho. Takes "Y" or "N"
 	[BeginTime] [time](0) NOT NULL CONSTRAINT [DF_Options_BeginTime]  DEFAULT (('00:00:00')),
+		--The time at which to start running the AutoWho trace.
 	[EndTime] [time](0) NOT NULL CONSTRAINT [DF_Options_EndTime]  DEFAULT (('23:59:30')),
+		--The time at which to stop running the AutoWho trace.
 	[BeginEndIsUTC] [nchar](1) NOT NULL CONSTRAINT [DF_Options_BeginEndIsUTC]  DEFAULT (N'N'),
+		--Whether BeginTime and EndTime are specified in UTC or not.
 	[IntervalLength] [smallint] NOT NULL CONSTRAINT [DF_Options_IntervalLength]  DEFAULT ((15)),
+		--The length, in seconds, of each interval. If AutoWho collects its data almost instantaneously, this is the time between executions of the AutoWho Collector.
+		-- However, if AutoWho runs several seconds, the idle duration is adjusted so that the next AutoWho execution falls roughly on a boundary point (multiple of IntervalLength)
 	[IncludeIdleWithTran] [nchar](1) NOT NULL CONSTRAINT [DF_Options_IncludeIdleWithTran]  DEFAULT (N'Y'),
+		--Whether to collect sessions that are not actively running a batch but DO have an open transaction.
 	[IncludeIdleWithoutTran] [nchar](1) NOT NULL CONSTRAINT [DF_Options_IncludeIdleWithoutTran]  DEFAULT (N'N'),
+		--Whether to collect sessions that are completely idle (no running batch, no open transactions)
 	[DurationFilter] [int] NOT NULL CONSTRAINT [DF_Options_DurationFilter]  DEFAULT ((0)),
+		--When > 0, filters out spids whose "effective duration" (in milliseconds) is < this duration. 
+		--For running SPIDs, the "effective duration" is the duration of the current batch (based on request start_time). 
+		--For idle SPIDs, it is the time since the last_request_end_time value, aka the time the spid has been idle. Takes a number between 0 and max(int)
 	[IncludeDBs] [nvarchar](4000) NOT NULL CONSTRAINT [DF_Options_IncludeDBs]  DEFAULT (N''),
+		--A comma-delimited list of database names to INCLUDE (this is the context DB of the SPID, not necessarily the object DB of the proc/function/trigger/etc). 
+		--SPIDs with a context DB other than in this list will be excluded unless they are blockers of an included SPID.
 	[ExcludeDBs] [nvarchar](4000) NOT NULL CONSTRAINT [DF_Options_ExcludeDBs]  DEFAULT (N''),
+		--A comma-delimited list of database names to EXCLUDE (this is the context DB of the SPID, not necessarily the object DB of the proc/function/trigger/etc). 
+		--SPIDs with a context DB in this list will be excluded unless they are blockers of an included SPID.
 	[HighTempDBThreshold] [int] NOT NULL CONSTRAINT [DF_Options_HighTempDBThreshold]  DEFAULT ((64000)),
+		--The threshold (in # of 8KB pages) at which point a SPID becomes a High TempDB user. 
+		--SPIDs with TempDB usage above this threshold are always captured, regardless of whether they are idle or have open trans or not.
 	[CollectSystemSpids] [nchar](1) NOT NULL CONSTRAINT [DF_Options_CollectSystemSpids]  DEFAULT (N'Y'),
+		--Whether to collect system spids (typically session_id <=50, but not always). Takes "Y" or "N". 
+		--If "Y", only "interesting" system spids (those not in their normal wait/idle state) will be captured.
 	[HideSelf] [nchar](1) NOT NULL CONSTRAINT [DF_Options_HideSelf]  DEFAULT (N'Y'),
+		--Whether to hide the session that is running AutoWho. Takes "Y" or "N". "N" is typically only useful when debugging AutoWho performance or resource utilization.
 	[ObtainBatchText] [nchar](1) NOT NULL CONSTRAINT [DF_Options_ObtainBatchText]  DEFAULT (N'N'),
+		--Whether the complete T-SQL batch is obtained. Takes "Y" or "N". Regardless of this value, the text of the current statement for active spids is always obtained.
 	[ObtainQueryPlanForStatement] [nchar](1) NOT NULL CONSTRAINT [DF_Options_ObtainQueryPlanForStatement]  DEFAULT (N'Y'),
+		--Whether statement-level query plans are obtained for the statements currently executed by running spids. Takes "Y" or "N"
 	[ObtainQueryPlanForBatch] [nchar](1) NOT NULL CONSTRAINT [DF_Options_ObtainQueryPlanForBatch]  DEFAULT (N'N'),
+		--Whether query plans are obtained for the complete batch a spid is running. Takes "Y" or "N"
 	[ObtainLocksForBlockRelevantThreshold] [int] NOT NULL CONSTRAINT [DF_Options_ObtainLocksForBlockRelevantThreshold]  DEFAULT ((20000)),
+		--The # of a milliseconds that an active spid must be blocked before a special query is run to grab info about 
+		--what locks are held by all blocking-relevant (blocked and blockers) spids. Takes a number between 0 and max(smallint)
 	[InputBufferThreshold] [int] NOT NULL CONSTRAINT [DF_Options_InputBufferThreshold]  DEFAULT ((15000)),
+		--The # of milliseconds a spid must be running its current batch or be idle w/open tran before the Input Buffer is obtained for it. 
+		--Takes a number between 0 and max(int)
 	[ParallelWaitsThreshold] [int] NOT NULL CONSTRAINT [DF_Options_ParallelWaitsThreshold]  DEFAULT ((15000)),
+		--The # of milliseconds a batch running in parallel must be running before all of its tasks/waiting tasks DMV info is saved off to the TasksAndWaits table. 
+		--The "top wait/top task" is always saved, regardless of the duration of the batch. Takes a number between 0 and max(int)
 	[QueryPlanThreshold] [int] NOT NULL CONSTRAINT [DF_Options_QueryPlanThreshold]  DEFAULT ((3000)),
+		--The # of milliseconds that an active SPID must be running before its query plan will be captured.
 	[QueryPlanThresholdBlockRel] [int] NOT NULL CONSTRAINT [DF_Options_QueryPlanThresholdBlockRel]  DEFAULT ((2000)),
+		--The # of seconds that an active SPID that is block-relevant must be running before its query plan will be captured.
 	[BlockingChainThreshold] [int] NOT NULL CONSTRAINT [DF_Options_BlockingChainThreshold]  DEFAULT ((15000)),
+		--The # of a milliseconds that an active spid must be blocked before the blocking chain code is executed. 
+		--Note that the spids are not excluded from the Bchain, regardless of their duration, once the Bchain logic is triggered. 
+		--Rather, this parameter just defines what kind of blocking duration must be seen for the Bchain logic to trigger.
+		--Takes a number between 0 and max(smallint)
 	[BlockingChainDepth] [tinyint] NOT NULL CONSTRAINT [DF_Options_BlockingChainDepth]  DEFAULT ((4)),
+		--If the blocking chain code is executed, how many blocking-levels deep are collected and stored. 
+		--Takes a number between 0 and 10 inclusive. 0 means "off", and the Bchain logic will never be executed
 	[TranDetailsThreshold] [int] NOT NULL CONSTRAINT [DF_Options_TranDetailsThreshold]  DEFAULT ((60000)),
+		--If an active spid has been running this long (unit=milliseconds), or an idle w/tran spid has been idle this long, 
+		--its transaction data will be captured from the tran DMVs. 
+		--Note that tran data is also captured for spids with sys.dm_exec_sessions.open_transaction_count > 0, regardless of duration.
 	[MediumDurationThreshold] [int] NOT NULL CONSTRAINT [DF_Options_MediumDurationThreshold]  DEFAULT ((10)),
+		--Active SPIDs with a duration < this # of seconds will be considered to have a "Low Duration" class, 
+		--while active SPIDs >= this (but < HighDurationThreshold) will be in the "Medium Duration" class when purge logic is run.
 	[HighDurationThreshold] [int] NOT NULL CONSTRAINT [DF_Options_HighDurationThreshold]  DEFAULT ((30)),
+		--Active SPIDs with a duration < this # of seconds will be considered to have a "Medium Duration" class, 
+		--while active SPIDs >= this (but < BatchDurationThreshold) will be in the "High Duration" class when purge is run.
 	[BatchDurationThreshold] [int] NOT NULL CONSTRAINT [DF_Options_BatchDurationThreshold]  DEFAULT ((120)),
+		--Active SPIDs with a duration < this # of seconds will be considered to have a "High Duration" class, 
+		--while active SPIDs >= this will be in the "Batch Duration" class, when purge logic is run.
 	[LongTransactionThreshold] [int] NOT NULL CONSTRAINT [DF_Options_LongTransactionThreshold]  DEFAULT ((300)),
+		--SPIDs that have an open transaction >= this value (unit is seconds) are declared to have a "long" transaction. 
+		--This affects which purge retention policy is applied.
 	[Retention_IdleSPIDs_NoTran] [int] NOT NULL CONSTRAINT [DF_Options_Retention_IdleSPIDs_NoTran]  DEFAULT ((168)),
+		--The # of hours to retain entries for idle SPIDs that do not have an open transaction.
 	[Retention_IdleSPIDs_WithShortTran] [int] NOT NULL CONSTRAINT [DF_Options_Retention_IdleSPIDs_WithShortTran]  DEFAULT ((168)),
+		--The # of hours to retain entries for idle SPIDs that DO have an open transaction, and that transaction is < than the LongTransactionThreshold value.
 	[Retention_IdleSPIDs_WithLongTran] [int] NOT NULL CONSTRAINT [DF_Options_Retention_IdleSPIDs_WithLongTran]  DEFAULT ((168)),
+		--The # of hours to retain entries for idle SPIDs that DO have an open transaction, and that transaction is >= the LongTransactionThreshold value.
 	[Retention_IdleSPIDs_HighTempDB] [int] NOT NULL CONSTRAINT [DF_Options_Retention_IdleSPIDs_HighTempDB]  DEFAULT ((168)),
+		--The # of hours to retain entries for idle SPIDs that use >= than HighTempDBThreshold # of pages.
 	[Retention_ActiveLow] [int] NOT NULL CONSTRAINT [DF_Options_Retention_ActiveLow]  DEFAULT ((168)),
+		--The # of hours to retain entries for active SPIDs that fall into the Low Duration category.
 	[Retention_ActiveMedium] [int] NOT NULL CONSTRAINT [DF_Options_Retention_ActiveMedium]  DEFAULT ((168)),
+		--The # of hours to retain entries for active SPIDs that fall into the Medium Duration category.
 	[Retention_ActiveHigh] [int] NOT NULL CONSTRAINT [DF_Options_Retention_ActiveHigh]  DEFAULT ((168)),
+		--The # of hours to retain entries for active SPIDs that fall into the High Duration category.
 	[Retention_ActiveBatch] [int] NOT NULL CONSTRAINT [DF_Options_Retention_ActiveBatch]  DEFAULT ((168)),
+		--The # of hours to retain entries for active SPIDs that fall into the Batch Duration category.
 	[Retention_CaptureTimes] [int] NOT NULL CONSTRAINT [DF_Options_Retention_CaptureTimes]  DEFAULT ((10)),
+		--The # of days to retain rows in the AutoWho_CaptureTimes table. This should be a longer time frame than all of the Retention_* variables
 	[DebugSpeed] [nchar](1) NOT NULL CONSTRAINT [DF_Options_DebugSpeed]  DEFAULT (N'Y'),
+		--Whether to capture duration info for each significant statement in the AutoWho Collection procedure and write that duration info to a table.
 	[ThresholdFilterRefresh] [smallint] NOT NULL CONSTRAINT [DF_Options_ThresholdFilterRefresh]  DEFAULT ((10)),
+		--The # of minutes in which to rerun the code that determines which SPIDs should NOT count toward various threshold-based triggers
 	[SaveBadDims] [nchar](1) NOT NULL CONSTRAINT [DF_Options_SaveBadDims]  DEFAULT (N'Y'),
+		--Saves spid records that could not be mapped to dimension keys to a separate table.
 	[Enable8666] [nchar](1) NOT NULL CONSTRAINT [DF_Options_Enable8666]  DEFAULT (N'N'),
+		--Whether the AutoWho process will enable (undocumented) TF 8666; enabling this flag causes "InternalInfo" 
+		--nodes to be added to the XML showplans that are captured by AutoWho. Takes "Y" or "N"
 	[ResolvePageLatches] [nchar](1) NOT NULL CONSTRAINT [DF_Options_ResolvePageLatches]  DEFAULT (N'Y'),
+		--Whether the AutoWho Post-processor will attempt to resolve page and pageio latch strings into which object/index they map to via DBCC PAGE. Takes "Y" or "N"
 	[ResolveLockWaits] [nchar](1) NOT NULL CONSTRAINT [DF_Options_ResolveLockWaits]  DEFAULT (N'Y'),
+		--Whether the AutoWho procedure will attempt to resolve locks into the objects/indexes that they map to.
 	[PurgeUnextractedData] [nchar](1) NOT NULL CONSTRAINT [DF_Options_PurgeUnextractedData]  DEFAULT (N'Y'),
+		--Whether purge is allowed to delete data for capture times rows (in @@CHIRHO_SCHEMA@@.AutoWho_CaptureTimes) that has not been extracted for the DW yet. Takes "Y" or "N"
  CONSTRAINT [PKAutoWhoOptions] PRIMARY KEY CLUSTERED 
 (
 	[RowID] ASC
@@ -260,95 +327,4 @@ GO
 ALTER TABLE @@CHIRHO_SCHEMA@@.AutoWho_Options  WITH CHECK ADD  CONSTRAINT [CK_OptionsPurgeUnextractedData] CHECK  (([PurgeUnextractedData]=N'N' OR [PurgeUnextractedData]=N'Y'))
 GO
 ALTER TABLE @@CHIRHO_SCHEMA@@.AutoWho_Options CHECK CONSTRAINT [CK_OptionsPurgeUnextractedData]
-GO
---
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Enforces just 1 row in the table' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'RowID'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Master on/off switch for the AutoWho tracing portion of ChiRho. Takes "Y" or "N"' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'AutoWhoEnabled'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The time at which to start running the AutoWho trace.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'BeginTime'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The time at which to stop running the AutoWho trace.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'EndTime'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether BeginTime and EndTime are specified in UTC or not.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'BeginEndIsUTC'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The length, in seconds, of each interval. If AutoWho collects its data almost instantaneously, this is the time between AutoWho executions. However, if AutoWho runs several seconds, the idle duration is adjusted so that the next AutoWho execution falls roughly on a 15-second boundary point' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'IntervalLength'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether to collect sessions that are not actively running a batch but DO have an open transaction.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'IncludeIdleWithTran'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether to collect sessions that are completely idle (no running batch, no open transactions)' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'IncludeIdleWithoutTran'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'When > 0, filters out spids whose "effective duration" (in milliseconds) is < this duration. For running SPIDs, the "effective duration" is the duration of the current batch (based on request start_time). For idle SPIDs, it is the time since the last_request_end_time value, aka the time the spid has been idle. Takes a number between 0 and max(int)' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'DurationFilter'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'A comma-delimited list of database names to INCLUDE (this is the context DB of the SPID, not necessarily the object DB of the proc/function/trigger/etc). SPIDs with a context DB other than in this list will be excluded unless they are blockers of an included SPID.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'IncludeDBs'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'A comma-delimited list of database names to EXCLUDE (this is the context DB of the SPID, not necessarily the object DB of the proc/function/trigger/etc). SPIDs with a context DB in this list will be excluded unless they are blockers of an included SPID.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'ExcludeDBs'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The threshold (in # of 8KB pages) at which point a SPID becomes a High TempDB user. SPIDs with TempDB usage above this threshold are always captured, regardless of whether they are idle or have open trans or not.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'HighTempDBThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether to collect system spids (typically session_id <=50, but not always). Takes "Y" or "N". If "Y", only "interesting" system spids (those not in their normal wait/idle state) will be captured.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'CollectSystemSpids'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether to hide the session that is running AutoWho. Takes "Y" or "N". "Y" is typically only useful when debugging AutoWho performance or resource utilization.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'HideSelf'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether the complete T-SQL batch is obtained. Takes "Y" or "N". Regardless of this value, the text of the current statement for active spids is always obtained.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'ObtainBatchText'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether statement-level query plans are obtained for the statements currently executed by running spids. Takes "Y" or "N"' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'ObtainQueryPlanForStatement'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether query plans are obtained for the complete batch a spid is running. Takes "Y" or "N"' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'ObtainQueryPlanForBatch'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of a milliseconds that an active spid must be blocked before a special query is run to grab info about what locks are held by all blocking-relevant (blocked and blockers) spids. Takes a number between 0 and max(smallint)' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'ObtainLocksForBlockRelevantThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of milliseconds a spid must be running its current batch or be idle w/open tran before the Input Buffer is obtained for it. Takes a number between 0 and max(int)' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'InputBufferThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of milliseconds a batch running in parallel must be running before all of its tasks/waiting tasks DMV info is saved off to the TasksAndWaits table. The "top wait/top task" is always saved, regardless of the duration of the batch. Takes a number between 0 and max(int)' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'ParallelWaitsThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of milliseconds that an active SPID must be running before its query plan will be captured.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'QueryPlanThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of seconds that an active SPID that is block-relevant must be running before its query plan will be captured.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'QueryPlanThresholdBlockRel'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of a milliseconds that an active spid must be blocked before the blocking chain code is executed. Note that the spids are not excluded from the Bchain, regardless of their duration, once the Bchain logic is triggered. Rather, this parameter just defines what kind of blocking duration must be seen for the Bchain logic to trigger.Takes a number between 0 and max(smallint)' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'BlockingChainThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'If the blocking chain code is executed, how many blocking-levels deep are collected and stored. Takes a number between 0 and 10 inclusive. 0 means "off", and the Bchain logic will never be executed' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'BlockingChainDepth'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'If an active spid has been running this long (unit=milliseconds), or an idle w/tran spid has been idle this long, its transaction data will be captured from the tran DMVs. Note that tran data is also captured for spids with sys.dm_exec_sessions.open_transaction_count > 0, regardless of duration.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'TranDetailsThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Active SPIDs with a duration < this # of seconds will be considered to have a "Low Duration" class, while active SPIDs >= this (but < HighDurationThreshold) will be in the "Medium Duration" class when purge logic is run.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'MediumDurationThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Active SPIDs with a duration < this # of seconds will be considered to have a "Medium Duration" class, while active SPIDs >= this (but < BatchDurationThreshold) will be in the "High Duration" class when purge is run.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'HighDurationThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Active SPIDs with a duration < this # of seconds will be considered to have a "High Duration" class, while active SPIDs >= this will be in the "Batch Duration" class, when purge logic is run.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'BatchDurationThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'SPIDs that have an open transaction >= this value (unit is seconds) are declared to have a "long" transaction. This affects which purge retention policy is applied.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'LongTransactionThreshold'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of hours to retain entries for idle SPIDs that do not have an open transaction.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Retention_IdleSPIDs_NoTran'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of hours to retain entries for idle SPIDs that DO have an open transaction, and that transaction is < than the LongTransactionThreshold value.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Retention_IdleSPIDs_WithShortTran'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of hours to retain entries for idle SPIDs that DO have an open transaction, and that transaction is >= the LongTransactionThreshold value.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Retention_IdleSPIDs_WithLongTran'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of hours to retain entries for idle SPIDs that use >= than HighTempDBThreshold # of pages.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Retention_IdleSPIDs_HighTempDB'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of hours to retain entries for active SPIDs that fall into the Low Duration category.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Retention_ActiveLow'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of hours to retain entries for active SPIDs that fall into the Medium Duration category.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Retention_ActiveMedium'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of hours to retain entries for active SPIDs that fall into the High Duration category.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Retention_ActiveHigh'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of hours to retain entries for active SPIDs that fall into the Batch Duration category.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Retention_ActiveBatch'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of days to retain rows in the AutoWho_CaptureTimes table. This should be a longer time frame than all of the Retention_* variables' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Retention_CaptureTimes'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether to capture duration info for each significant statement in the AutoWho procedure and write that duration info to a table.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'DebugSpeed'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'The # of minutes in which to rerun the code that determines which SPIDs should NOT count toward various threshold-based triggers' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'ThresholdFilterRefresh'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Saves spid records that could not be mapped to dimension keys to a separate table.' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'SaveBadDims'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether the AutoWho process will enable (undocumented) TF 8666; enabling this flag causes "InternalInfo" nodes to be added to the XML showplans that are captured by AutoWho. Takes "Y" or "N"' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'Enable8666'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether the AutoWho procedure will attempt to resolve page and pageio latch strings into which object/index they map to via DBCC PAGE. Takes "Y" or "N"' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'ResolvePageLatches'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether the AutoWho procedure will attempt to resolve page and pageio latch strings into which object/index they map to via DBCC PAGE. Takes "Y" or "N"' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'ResolveLockWaits'
-GO
-EXEC sys.sp_addextendedproperty @name=N'MS_Description', @value=N'Whether purge is allowed to delete data for capture times rows (in @@CHIRHO_SCHEMA@@.AutoWho_CaptureTimes) that has not been extracted for the DW yet. Takes "Y" or "N"' , @level0type=N'SCHEMA',@level0name=N'AutoWho', @level1type=N'TABLE',@level1name=N'Options', @level2type=N'COLUMN',@level2name=N'PurgeUnextractedData'
 GO
